@@ -23,21 +23,29 @@ fn fuel_required_to_launch_module(mass: u32) -> u32 {
     }
 }
 
-fn main() {
-    let fuel = fuel_required_to_launch_module(12);
-    println!("Hello, world!, {}", fuel);
+fn parse_input() -> Vec<u32> {
+    let data = include_str!("input.txt");
+    data.split("\n")
+        .filter(|s| *s != "")
+        .map(|s| s.parse().unwrap())
+        .collect()
 }
 
+fn main() {
+    let data = parse_input();
+    let result: u32 = data.into_iter().map(fuel_required_to_launch_module).sum();
+    println!("{}", result);
+}
+
+#[test]
 mod tests {
     use super::*;
-    #[test]
     fn test_fuel_required_to_launch_module_when_all_goes_well() {
         assert_eq!(2, fuel_required_to_launch_module(12));
         assert_eq!(2, fuel_required_to_launch_module(14));
         assert_eq!(654, fuel_required_to_launch_module(1969));
         assert_eq!(33583, fuel_required_to_launch_module(100756));
     }
-    #[test]
     fn test_fuel_required_to_launch_module_when_mass_is_low() {
         assert_eq!(0, fuel_required_to_launch_module(1));
         assert_eq!(0, fuel_required_to_launch_module(5));
