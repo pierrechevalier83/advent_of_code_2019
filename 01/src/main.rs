@@ -61,17 +61,25 @@ fn main() {
     println!("correct: {}", correct_result);
 }
 
-#[test]
 mod tests {
     use super::*;
-    fn test_fuel_required_to_launch_module_when_all_goes_well() {
-        assert_eq!(2, fuel_required_to_launch_module(12));
-        assert_eq!(2, fuel_required_to_launch_module(14));
-        assert_eq!(654, fuel_required_to_launch_module(1969));
-        assert_eq!(33583, fuel_required_to_launch_module(100756));
+    #[test]
+    fn test_naive_fuel_required_to_launch_module_when_all_goes_well() {
+        assert_eq!(2, naive::fuel_required_to_launch_module(12));
+        assert_eq!(2, naive::fuel_required_to_launch_module(14));
+        assert_eq!(654, naive::fuel_required_to_launch_module(1969));
+        assert_eq!(33583, naive::fuel_required_to_launch_module(100756));
     }
-    fn test_fuel_required_to_launch_module_when_mass_is_low() {
-        assert_eq!(0, fuel_required_to_launch_module(1));
-        assert_eq!(0, fuel_required_to_launch_module(5));
+    #[test]
+    fn test_naive_fuel_required_to_launch_module_when_mass_is_low() {
+        assert_eq!(0, naive::fuel_required_to_launch_module(1));
+        assert_eq!(0, naive::fuel_required_to_launch_module(5));
+    }
+    #[test]
+    fn test_correct_fuel_required_to_launch_module_when_all_goes_well() {
+        assert_eq!(2, correct::fuel_required_to_launch_module(12));
+        assert_eq!(2, correct::fuel_required_to_launch_module(14));
+        assert_eq!(966, correct::fuel_required_to_launch_module(1969));
+        assert_eq!(50346, correct::fuel_required_to_launch_module(100756));
     }
 }
