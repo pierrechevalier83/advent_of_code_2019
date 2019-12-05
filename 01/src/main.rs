@@ -15,11 +15,26 @@
 
 /// What is the sum of the fuel requirements for all of the modules on your spacecraft?
 
-fn fuel_required_to_launch_module(mass: u32) -> u32 {
-    if mass / 3 >= 2 {
-        mass / 3 - 2
-    } else {
-        0
+mod naive {
+    pub(super) fn fuel_required_to_launch_module(mass: u32) -> u32 {
+        if mass / 3 >= 2 {
+            mass / 3 - 2
+        } else {
+            0
+        }
+    }
+}
+
+mod correct {
+    pub(super) fn fuel_required_to_launch_module(mass: u32) -> u32 {
+        let naive = super::naive::fuel_required_to_launch_module(mass);
+        if naive == 0 {
+            0
+        } else {
+            let required_for_mass = naive;
+            let required_for_fuel = fuel_required_to_launch_module(required_for_mass);
+            required_for_mass + required_for_fuel
+        }
     }
 }
 
@@ -33,8 +48,17 @@ fn parse_input() -> Vec<u32> {
 
 fn main() {
     let data = parse_input();
-    let result: u32 = data.into_iter().map(fuel_required_to_launch_module).sum();
-    println!("{}", result);
+    let naive_result: u32 = data
+        .clone()
+        .into_iter()
+        .map(naive::fuel_required_to_launch_module)
+        .sum();
+    println!("naive: {}", naive_result);
+    let correct_result: u32 = data
+        .into_iter()
+        .map(correct::fuel_required_to_launch_module)
+        .sum();
+    println!("correct: {}", correct_result);
 }
 
 #[test]
