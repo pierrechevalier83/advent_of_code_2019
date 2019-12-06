@@ -53,12 +53,12 @@ fn main() {
         .into_iter()
         .map(naive::fuel_required_to_launch_module)
         .sum();
-    println!("naive: {}", naive_result);
+    println!("part 1: {}", naive_result);
     let correct_result: u32 = data
         .into_iter()
         .map(correct::fuel_required_to_launch_module)
         .sum();
-    println!("correct: {}", correct_result);
+    println!("part 2: {}", correct_result);
 }
 
 mod tests {
