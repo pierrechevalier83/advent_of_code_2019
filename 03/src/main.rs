@@ -10,6 +10,25 @@ impl Point {
     fn manhattan_distance_to_origin(self) -> i32 {
         self.x.abs() + self.y.abs()
     }
+    /// Some if the point is on the wire
+    fn wire_distance_to_origin(self, wire: &Wire) -> Option<i32> {
+        let mut distance = 0;
+        let mut last_point = Point::origin();
+        for segment in wire.segments.iter() {
+            for point in segment.all_points_from(last_point) {
+                if point == self {
+                    return Some(distance);
+                }
+                distance += 1;
+            }
+            if last_point == segment.start {
+                last_point = segment.end();
+            } else {
+                last_point = segment.start;
+            }
+        }
+        None
+    }
     fn origin() -> Self {
         Point::default()
     }
@@ -46,6 +65,52 @@ struct Segment {
 }
 
 impl Segment {
+    fn all_points_from(self, point: Point) -> Vec<Point> {
+        if point == self.start {
+            (0..self.length)
+                .map(|i| match self.axis {
+                    Axis::X => Point {
+                        x: point.x + i,
+                        y: point.y,
+                    },
+                    Axis::Y => Point {
+                        x: point.x,
+                        y: point.y + i,
+                    },
+                })
+                .collect()
+        } else if point == self.end() {
+            (0..self.length)
+                .map(|i| match self.axis {
+                    Axis::X => Point {
+                        x: point.x - i,
+                        y: point.y,
+                    },
+                    Axis::Y => Point {
+                        x: point.x,
+                        y: point.y - i,
+                    },
+                })
+                .collect()
+        } else {
+            panic!(
+                "Expected point: {:?} to be one end of the segment: {:?}",
+                point, self
+            )
+        }
+    }
+    fn end(self) -> Point {
+        match self.axis {
+            Axis::X => Point {
+                x: self.start.x + self.length,
+                y: self.start.y,
+            },
+            Axis::Y => Point {
+                x: self.start.x,
+                y: self.start.y + self.length,
+            },
+        }
+    }
     fn from_points(a: Point, b: Point) -> Result<Self, String> {
         if a.x == b.x {
             Ok(Self {
@@ -193,16 +258,34 @@ impl Wire {
             })
             .collect()
     }
-    fn distance_from_closest_intersection_to_origin(&self, other: &Self) -> Option<i32> {
+    fn manhattan_distance_from_closest_intersection_to_origin(&self, other: &Self) -> Option<i32> {
         let intersections = self.intersections(other);
         intersections
             .into_iter()
             .filter(|point| *point != Point::origin())
-            .min_by(|x, y| {
-                x.manhattan_distance_to_origin()
-                    .cmp(&y.manhattan_distance_to_origin())
+            .min_by(|a, b| {
+                a.manhattan_distance_to_origin()
+                    .cmp(&b.manhattan_distance_to_origin())
             })
             .map(Point::manhattan_distance_to_origin)
+    }
+    fn wire_distance_from_closest_intersection_to_origin(&self, other: &Self) -> Option<i32> {
+        let intersections = self.intersections(other);
+        intersections
+            .into_iter()
+            .filter(|point| *point != Point::origin())
+            .min_by(|a, b| {
+                (a.wire_distance_to_origin(self).unwrap()
+                    + a.wire_distance_to_origin(other).unwrap())
+                .cmp(
+                    &(b.wire_distance_to_origin(self).unwrap()
+                        + b.wire_distance_to_origin(other).unwrap()),
+                )
+            })
+            .map(|point| {
+                point.wire_distance_to_origin(self).unwrap()
+                    + point.wire_distance_to_origin(other).unwrap()
+            })
     }
 }
 
@@ -257,7 +340,13 @@ fn main() {
     println!(
         "part 1: {}",
         wires[0]
-            .distance_from_closest_intersection_to_origin(&wires[1])
+            .manhattan_distance_from_closest_intersection_to_origin(&wires[1])
+            .unwrap()
+    );
+    println!(
+        "part 2: {}",
+        wires[0]
+            .wire_distance_from_closest_intersection_to_origin(&wires[1])
             .unwrap()
     );
 }
@@ -268,22 +357,30 @@ mod tests {
     struct TestCase {
         wire: Wire,
         other_wire: Wire,
-        expected_result: i32,
+        manhattan_result: i32,
+        wire_result: i32,
     }
 
     impl TestCase {
-        fn from_raw(wire: &str, other_wire: &str, expected_result: i32) -> Self {
+        fn from_raw(wire: &str, other_wire: &str, manhattan_result: i32, wire_result: i32) -> Self {
             Self {
                 wire: Wire::from_str(wire).unwrap(),
                 other_wire: Wire::from_str(other_wire).unwrap(),
-                expected_result,
+                manhattan_result,
+                wire_result,
             }
         }
         fn run(&self) {
             assert_eq!(
-                self.expected_result,
+                self.manhattan_result,
                 self.wire
-                    .distance_from_closest_intersection_to_origin(&self.other_wire)
+                    .manhattan_distance_from_closest_intersection_to_origin(&self.other_wire)
+                    .unwrap()
+            );
+            assert_eq!(
+                self.wire_result,
+                self.wire
+                    .wire_distance_from_closest_intersection_to_origin(&self.other_wire)
                     .unwrap()
             );
         }
@@ -292,16 +389,18 @@ mod tests {
     #[test]
     fn test_simple_example() {
         let mut tests = Vec::new();
-        tests.push(TestCase::from_raw("R8,U5,L5,D3", "U7,R6,D4,L4", 6));
+        tests.push(TestCase::from_raw("R8,U5,L5,D3", "U7,R6,D4,L4", 6, 30));
         tests.push(TestCase::from_raw(
             "R75,D30,R83,U83,L12,D49,R71,U7,L72",
             "U62,R66,U55,R34,D71,R55,D58,R83",
             159,
+            610,
         ));
         tests.push(TestCase::from_raw(
             "R98,U47,R26,D63,R33,U87,L62,D20,R33,U53,R51",
             "U98,R91,D20,R16,D67,R40,U7,R15,U6,R7",
             135,
+            410,
         ));
         for test in tests {
             test.run();
