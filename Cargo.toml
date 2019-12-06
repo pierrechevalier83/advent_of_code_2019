@@ -4,6 +4,11 @@ version = "0.1.0"
 authors = ["Pierre Chevalier <pierrechevalier83@gmail.com>"]
 edition = "2018"
 
+[lib]
+name = "intcode_computer"
+path = "intcode_computer/src/lib.rs"
+
+
 [[bin]]
 name = "01"
 path = "01/src/main.rs"

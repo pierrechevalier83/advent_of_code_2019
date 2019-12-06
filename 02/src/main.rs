@@ -1,77 +1,10 @@
+use intcode_computer::*;
+
 fn parse_input() -> Vec<usize> {
     let data = include_str!("input.txt");
     data.split(|c| c == '\n' || c == ',')
         .filter_map(|s| s.parse().ok())
         .collect()
-}
-
-#[derive(Eq, PartialEq)]
-enum Operation {
-    Add,
-    Multiply,
-    End,
-}
-
-impl Operation {
-    fn from_code(code: usize) -> Result<Operation, String> {
-        match code {
-            1 => Ok(Operation::Add),
-            2 => Ok(Operation::Multiply),
-            99 => Ok(Operation::End),
-            _ => Err(format!("Invalid operation: {}", code)),
-        }
-    }
-    fn apply(&self, computer: &mut Computer) {
-        match self {
-            Operation::Add => {
-                computer.add();
-            }
-            Operation::Multiply => {
-                computer.multiply();
-            }
-            Operation::End => (),
-        }
-    }
-}
-
-#[derive(Clone)]
-struct Computer {
-    data: Vec<usize>,
-    index: usize,
-}
-
-impl Computer {
-    fn from_data(data: Vec<usize>) -> Self {
-        Self { data, index: 0 }
-    }
-    fn apply<F>(&mut self, f: F)
-    where
-        F: Fn(usize, usize) -> usize,
-    {
-        let store_index = self.data[self.index + 3].clone();
-        self.data[store_index] = f(
-            self.data[self.data[self.index + 1]],
-            self.data[self.data[self.index + 2]],
-        );
-    }
-    fn add(&mut self) {
-        self.apply(|x, y| x + y);
-    }
-    fn multiply(&mut self) {
-        self.apply(|x, y| x * y);
-    }
-    fn next(&mut self) {
-        self.index += 4;
-    }
-    fn compute(&mut self) -> Result<(), String> {
-        let mut op = Operation::from_code(self.data[self.index])?;
-        while op != Operation::End {
-            op.apply(self);
-            self.next();
-            op = Operation::from_code(self.data[self.index])?;
-        }
-        Ok(())
-    }
 }
 
 /// Once you have a working computer, the first step is to restore the gravity assist program (your
