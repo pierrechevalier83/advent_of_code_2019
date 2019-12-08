@@ -126,10 +126,12 @@ impl Computer {
     fn user_input() -> Result<isize, String> {
         use std::io;
         let mut input = String::new();
+        println!("Please, enter input:");
         io::stdin()
             .read_line(&mut input)
             .map_err(|e| format!("Error parsing user input: {}", e))?;
         input
+            .trim()
             .parse()
             .map_err(|e| format!("Error parsing user input: {}", e))
     }
@@ -142,7 +144,7 @@ impl Computer {
     }
     fn output(&mut self) -> Result<(), String> {
         println!(
-            "output: {}",
+            "{}",
             self.get_input_data(
                 self.index + 1,
                 ParameterMode::from_code(self.data[self.index])?
