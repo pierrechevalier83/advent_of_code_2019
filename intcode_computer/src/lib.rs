@@ -10,10 +10,6 @@ pub enum Operation {
 impl Operation {
     fn from_code(code: usize) -> Result<Operation, String> {
         let op_code = code % 100;
-        // TODO:
-        // any leftmost digits: parameter modes
-        // Handle this properly
-        let _op_mode = (code - op_code) / 100;
         match op_code {
             1 => Ok(Operation::Add),
             2 => Ok(Operation::Multiply),
@@ -33,16 +29,16 @@ impl Operation {
     fn apply(&self, computer: &mut Computer) -> Result<(), String> {
         match self {
             Operation::Add => {
-                computer.add();
+                computer.add()?;
             }
             Operation::Multiply => {
-                computer.multiply();
+                computer.multiply()?;
             }
             Operation::Input => {
                 computer.input()?;
             }
             Operation::Output => {
-                computer.output();
+                computer.output()?;
             }
             Operation::End => (),
         }
@@ -55,6 +51,28 @@ pub enum ParameterMode {
     ImmediateMode,
 }
 
+impl ParameterMode {
+    fn from_code(code: usize) -> Result<Vec<Self>, String> {
+        // Ignore the two rightmost difits which are for the op_code
+        let op_mode = (code - code % 100) / 100;
+        let s = op_mode.to_string();
+        s.chars()
+            .rev()
+            .map(|c| match c {
+                '0' => Ok(Self::PositionMode),
+                '1' => Ok(Self::ImmediateMode),
+                _ => Err(format!("Invalid parameter mode in op code: {}", code)),
+            })
+            .collect()
+    }
+}
+
+impl Default for ParameterMode {
+    fn default() -> Self {
+        Self::PositionMode
+    }
+}
+
 #[derive(Clone)]
 pub struct Computer {
     pub data: Vec<usize>,
@@ -65,21 +83,35 @@ impl Computer {
     pub fn from_data(data: Vec<usize>) -> Self {
         Self { data, index: 0 }
     }
-    fn apply<F>(&mut self, f: F)
+    fn get_input_data(&self, index: usize, mode: &ParameterMode) -> usize {
+        match mode {
+            ParameterMode::PositionMode => self.data[self.data[index]],
+            ParameterMode::ImmediateMode => self.data[index],
+        }
+    }
+    fn apply<F>(&mut self, f: F) -> Result<(), String>
     where
         F: Fn(usize, usize) -> usize,
     {
+        let mode = ParameterMode::from_code(self.data[self.index])?;
         let store_index = self.data[self.index + 3].clone();
         self.data[store_index] = f(
-            self.data[self.data[self.index + 1]],
-            self.data[self.data[self.index + 2]],
+            self.get_input_data(
+                self.index + 1,
+                mode.get(0).unwrap_or(&ParameterMode::default()),
+            ),
+            self.get_input_data(
+                self.index + 2,
+                mode.get(1).unwrap_or(&ParameterMode::default()),
+            ),
         );
+        Ok(())
     }
-    fn add(&mut self) {
-        self.apply(|x, y| x + y);
+    fn add(&mut self) -> Result<(), String> {
+        self.apply(|x, y| x + y)
     }
-    fn multiply(&mut self) {
-        self.apply(|x, y| x * y);
+    fn multiply(&mut self) -> Result<(), String> {
+        self.apply(|x, y| x * y)
     }
     fn user_input() -> Result<usize, String> {
         use std::io;
@@ -96,9 +128,18 @@ impl Computer {
         self.data[store_index] = Self::user_input()?;
         Ok(())
     }
-    fn output(&mut self) {
-        let data_index = self.data[self.index + 1];
-        println!("output: {}", self.data[data_index]);
+    fn output(&mut self) -> Result<(), String> {
+        println!(
+            "output: {}",
+            self.get_input_data(
+                self.index + 1,
+                ParameterMode::from_code(self.data[self.index])?
+                    .get(0)
+                    .unwrap_or(&ParameterMode::default())
+                    .clone()
+            )
+        );
+        Ok(())
     }
     fn next(&mut self) -> Result<(), String> {
         self.index += self.current_operation()?.offset();
