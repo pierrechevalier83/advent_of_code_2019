@@ -1,3 +1,5 @@
+use std::convert::TryInto;
+
 #[derive(Eq, PartialEq)]
 pub enum Operation {
     Add,
@@ -8,7 +10,7 @@ pub enum Operation {
 }
 
 impl Operation {
-    fn from_code(code: usize) -> Result<Operation, String> {
+    fn from_code(code: isize) -> Result<Operation, String> {
         let op_code = code % 100;
         match op_code {
             1 => Ok(Operation::Add),
@@ -52,7 +54,7 @@ pub enum ParameterMode {
 }
 
 impl ParameterMode {
-    fn from_code(code: usize) -> Result<Vec<Self>, String> {
+    fn from_code(code: isize) -> Result<Vec<Self>, String> {
         // Ignore the two rightmost difits which are for the op_code
         let op_mode = (code - code % 100) / 100;
         let s = op_mode.to_string();
@@ -75,35 +77,43 @@ impl Default for ParameterMode {
 
 #[derive(Clone)]
 pub struct Computer {
-    pub data: Vec<usize>,
+    pub data: Vec<isize>,
     pub index: usize,
 }
 
 impl Computer {
-    pub fn from_data(data: Vec<usize>) -> Self {
+    pub fn from_data(data: Vec<isize>) -> Self {
         Self { data, index: 0 }
     }
-    fn get_input_data(&self, index: usize, mode: &ParameterMode) -> usize {
+    fn get_input_data(&self, index: usize, mode: &ParameterMode) -> Result<isize, String> {
         match mode {
-            ParameterMode::PositionMode => self.data[self.data[index]],
-            ParameterMode::ImmediateMode => self.data[index],
+            ParameterMode::PositionMode => {
+                let index: usize = self.data[index]
+                    .try_into()
+                    .map_err(|e| format!("Attempted to use negative integer as index: {}", e))?;
+
+                Ok(self.data[index])
+            }
+            ParameterMode::ImmediateMode => Ok(self.data[index]),
         }
     }
     fn apply<F>(&mut self, f: F) -> Result<(), String>
     where
-        F: Fn(usize, usize) -> usize,
+        F: Fn(isize, isize) -> isize,
     {
         let mode = ParameterMode::from_code(self.data[self.index])?;
-        let store_index = self.data[self.index + 3].clone();
+        let store_index: usize = self.data[self.index + 3]
+            .try_into()
+            .map_err(|e| format!("Attempted to use negative integer as index: {}", e))?;
         self.data[store_index] = f(
             self.get_input_data(
                 self.index + 1,
                 mode.get(0).unwrap_or(&ParameterMode::default()),
-            ),
+            )?,
             self.get_input_data(
                 self.index + 2,
                 mode.get(1).unwrap_or(&ParameterMode::default()),
-            ),
+            )?,
         );
         Ok(())
     }
@@ -113,7 +123,7 @@ impl Computer {
     fn multiply(&mut self) -> Result<(), String> {
         self.apply(|x, y| x * y)
     }
-    fn user_input() -> Result<usize, String> {
+    fn user_input() -> Result<isize, String> {
         use std::io;
         let mut input = String::new();
         io::stdin()
@@ -124,7 +134,9 @@ impl Computer {
             .map_err(|e| format!("Error parsing user input: {}", e))
     }
     fn input(&mut self) -> Result<(), String> {
-        let store_index = self.data[self.index + 1];
+        let store_index: usize = self.data[self.index + 1]
+            .try_into()
+            .map_err(|e| format!("Attempted to use negative integer as index: {}", e))?;
         self.data[store_index] = Self::user_input()?;
         Ok(())
     }
@@ -137,7 +149,7 @@ impl Computer {
                     .get(0)
                     .unwrap_or(&ParameterMode::default())
                     .clone()
-            )
+            )?
         );
         Ok(())
     }
