@@ -6,6 +6,10 @@ pub enum Operation {
     Multiply,
     Input,
     Output,
+    JumpIfTrue,
+    JumpIfFalse,
+    LessThan,
+    Equals,
     End,
 }
 
@@ -13,22 +17,28 @@ impl Operation {
     fn from_code(code: isize) -> Result<Operation, String> {
         let op_code = code % 100;
         match op_code {
-            1 => Ok(Operation::Add),
-            2 => Ok(Operation::Multiply),
-            3 => Ok(Operation::Input),
-            4 => Ok(Operation::Output),
-            99 => Ok(Operation::End),
+            1 => Ok(Self::Add),
+            2 => Ok(Self::Multiply),
+            3 => Ok(Self::Input),
+            4 => Ok(Self::Output),
+            5 => Ok(Self::JumpIfTrue),
+            6 => Ok(Self::JumpIfFalse),
+            7 => Ok(Self::LessThan),
+            8 => Ok(Self::Equals),
+            99 => Ok(Self::End),
             _ => Err(format!("Invalid operation: {}", code)),
         }
     }
     fn offset(&self) -> usize {
         match self {
-            Self::Add | Self::Multiply => 4,
+            Self::Add | Self::Multiply | Self::LessThan | Self::Equals => 4,
             Self::Input | Self::Output => 2,
+            Self::JumpIfTrue | Self::JumpIfFalse => 3,
+
             _ => 0,
         }
     }
-    fn apply(&self, computer: &mut Computer) -> Result<(), String> {
+    fn apply(&self, computer: &mut Computer) -> Result<bool, String> {
         match self {
             Operation::Add => {
                 computer.add()?;
@@ -42,12 +52,25 @@ impl Operation {
             Operation::Output => {
                 computer.output()?;
             }
+            Operation::JumpIfTrue => {
+                return computer.jump_if_true();
+            }
+            Operation::JumpIfFalse => {
+                return computer.jump_if_false();
+            }
+            Operation::LessThan => {
+                computer.less_than()?;
+            }
+            Operation::Equals => {
+                computer.equals()?;
+            }
             Operation::End => (),
         }
-        Ok(())
+        Ok(false)
     }
 }
 
+#[derive(Clone, Copy, Debug)]
 pub enum ParameterMode {
     PositionMode,
     ImmediateMode,
@@ -85,14 +108,28 @@ impl Computer {
     pub fn from_data(data: Vec<isize>) -> Self {
         Self { data, index: 0 }
     }
-    fn get_input_data(&self, index: usize, mode: &ParameterMode) -> Result<isize, String> {
+    fn write_at_offset(&mut self, offset: usize, datum: isize) -> Result<(), String> {
+        let index = self.index + offset;
+        let store_index: usize = self.data[index]
+            .try_into()
+            .map_err(|e| format!("Attempted to use negative integer as index: {}", e))?;
+        self.data[store_index] = datum;
+        Ok(())
+    }
+    fn read_at_offset(&self, offset: usize) -> Result<isize, String> {
+        let mode = ParameterMode::from_code(self.data[self.index])?;
+        let mode = mode
+            .get(offset - 1)
+            .cloned()
+            .unwrap_or(ParameterMode::default());
+        let index = self.index + offset;
         match mode {
             ParameterMode::PositionMode => {
-                let index: usize = self.data[index]
+                let store_index: usize = self.data[index]
                     .try_into()
                     .map_err(|e| format!("Attempted to use negative integer as index: {}", e))?;
 
-                Ok(self.data[index])
+                Ok(self.data[store_index])
             }
             ParameterMode::ImmediateMode => Ok(self.data[index]),
         }
@@ -101,21 +138,7 @@ impl Computer {
     where
         F: Fn(isize, isize) -> isize,
     {
-        let mode = ParameterMode::from_code(self.data[self.index])?;
-        let store_index: usize = self.data[self.index + 3]
-            .try_into()
-            .map_err(|e| format!("Attempted to use negative integer as index: {}", e))?;
-        self.data[store_index] = f(
-            self.get_input_data(
-                self.index + 1,
-                mode.get(0).unwrap_or(&ParameterMode::default()),
-            )?,
-            self.get_input_data(
-                self.index + 2,
-                mode.get(1).unwrap_or(&ParameterMode::default()),
-            )?,
-        );
-        Ok(())
+        self.write_at_offset(3, f(self.read_at_offset(1)?, self.read_at_offset(2)?))
     }
     fn add(&mut self) -> Result<(), String> {
         self.apply(|x, y| x + y)
@@ -136,27 +159,53 @@ impl Computer {
             .map_err(|e| format!("Error parsing user input: {}", e))
     }
     fn input(&mut self) -> Result<(), String> {
-        let store_index: usize = self.data[self.index + 1]
-            .try_into()
-            .map_err(|e| format!("Attempted to use negative integer as index: {}", e))?;
-        self.data[store_index] = Self::user_input()?;
-        Ok(())
+        self.write_at_offset(1, Self::user_input()?)
     }
     fn output(&mut self) -> Result<(), String> {
-        println!(
-            "{}",
-            self.get_input_data(
-                self.index + 1,
-                ParameterMode::from_code(self.data[self.index])?
-                    .get(0)
-                    .unwrap_or(&ParameterMode::default())
-                    .clone()
-            )?
-        );
+        println!("{}", self.read_at_offset(1)?,);
         Ok(())
     }
-    fn next(&mut self) -> Result<(), String> {
-        self.index += self.current_operation()?.offset();
+    fn jump_if_true(&mut self) -> Result<bool, String> {
+        if self.read_at_offset(1).map(|data| data != 0)? {
+            self.update_instruction_pointer()?;
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+    fn jump_if_false(&mut self) -> Result<bool, String> {
+        if self.read_at_offset(1).map(|data| data == 0)? {
+            self.update_instruction_pointer()?;
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+    fn update_instruction_pointer(&mut self) -> Result<(), String> {
+        self.index = self
+            .read_at_offset(2)?
+            .try_into()
+            .map_err(|_e| "Instruction pointer may only be set to an unsigned value")?;
+        Ok(())
+    }
+    fn less_than(&mut self) -> Result<(), String> {
+        if self.read_at_offset(1)? < self.read_at_offset(2)? {
+            self.write_at_offset(3, 1)
+        } else {
+            self.write_at_offset(3, 0)
+        }
+    }
+    fn equals(&mut self) -> Result<(), String> {
+        if self.read_at_offset(1)? == self.read_at_offset(2)? {
+            self.write_at_offset(3, 1)
+        } else {
+            self.write_at_offset(3, 0)
+        }
+    }
+    fn next(&mut self, did_jump: bool) -> Result<(), String> {
+        if !did_jump {
+            self.index += self.current_operation()?.offset();
+        }
         Ok(())
     }
     fn current_operation(&self) -> Result<Operation, String> {
@@ -165,8 +214,8 @@ impl Computer {
     pub fn compute(&mut self) -> Result<(), String> {
         let mut op = self.current_operation()?;
         while op != Operation::End {
-            op.apply(self)?;
-            self.next()?;
+            let did_jump = op.apply(self)?;
+            self.next(did_jump)?;
             op = Operation::from_code(self.data[self.index])?;
         }
         Ok(())
