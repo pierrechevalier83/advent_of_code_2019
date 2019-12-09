@@ -1,10 +1,10 @@
-use petgraph::{dot::Dot, graph::NodeIndex};
+use petgraph::{algo::bellman_ford, dot::Dot, graph::NodeIndex, Direction};
 use std::{collections::HashMap, fmt};
 
 #[derive(Default)]
 struct Graph {
     nodes: HashMap<&'static str, NodeIndex>,
-    graph: petgraph::Graph<&'static str, usize>,
+    graph: petgraph::graph::DiGraph<&'static str, f32>,
 }
 impl Graph {
     fn from_edges(edges: &[(&'static str, &'static str)]) -> Self {
@@ -26,7 +26,15 @@ impl Graph {
     fn insert_edge(&mut self, edge: &(&'static str, &'static str)) {
         let in_node = self.nodes[edge.0];
         let out_node = self.nodes[edge.1];
-        self.graph.add_edge(in_node, out_node, 0);
+        self.graph.add_edge(in_node, out_node, 1.);
+    }
+    fn sum_orbits(&self) -> f32 {
+        let mut sources = self.graph.externals(Direction::Incoming);
+        let source_node = sources.next().unwrap();
+        assert_eq!(Some(&"COM"), self.graph.node_weight(source_node));
+        assert!(sources.next().is_none());
+        let (path_weights, _node_indices) = bellman_ford(&self.graph, source_node).unwrap();
+        path_weights.iter().sum()
     }
 }
 
@@ -54,5 +62,5 @@ fn parse_input() -> Graph {
 
 fn main() {
     let graph = parse_input();
-    println!("{:?}", graph);
+    println!("part 1: {}", graph.sum_orbits());
 }
