@@ -37,3 +37,4 @@ path = "06/src/main.rs"
 
 [dependencies]
 petgraph = "0.4.13"
+mockstream = "0.0.3"

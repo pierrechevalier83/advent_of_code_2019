@@ -1,3 +1,4 @@
+use mockstream::MockStream;
 use std::convert::TryInto;
 
 #[derive(Eq, PartialEq)]
@@ -102,11 +103,16 @@ impl Default for ParameterMode {
 pub struct Computer {
     pub data: Vec<isize>,
     pub index: usize,
+    pub mock_io: Option<MockStream>,
 }
 
 impl Computer {
     pub fn from_data(data: Vec<isize>) -> Self {
-        Self { data, index: 0 }
+        Self {
+            data,
+            index: 0,
+            mock_io: None,
+        }
     }
     fn write_at_offset(&mut self, offset: usize, datum: isize) -> Result<(), String> {
         let index = self.index + offset;
@@ -146,23 +152,43 @@ impl Computer {
     fn multiply(&mut self) -> Result<(), String> {
         self.apply(|x, y| x * y)
     }
-    fn user_input() -> Result<isize, String> {
-        use std::io;
+    fn user_input(&mut self) -> Result<isize, String> {
         let mut input = String::new();
-        println!("Please, enter input:");
-        io::stdin()
-            .read_line(&mut input)
-            .map_err(|e| format!("Error parsing user input: {}", e))?;
+        if let Some(stream) = &mut self.mock_io {
+            use std::io::Read;
+            let mut bytes = Vec::<u8>::new();
+            for byte in stream.bytes() {
+                let byte = byte.unwrap();
+                bytes.push(byte);
+                if byte == b"\n"[0] {
+                    break;
+                }
+            }
+            input = String::from_utf8(bytes).unwrap();
+        } else {
+            use std::io;
+            println!("Please, enter input:");
+            io::stdin()
+                .read_line(&mut input)
+                .map_err(|e| format!("Error parsing user input: {}", e))?;
+        }
         input
             .trim()
             .parse()
             .map_err(|e| format!("Error parsing user input: {}", e))
     }
     fn input(&mut self) -> Result<(), String> {
-        self.write_at_offset(1, Self::user_input()?)
+        let input = self.user_input()?;
+        self.write_at_offset(1, input)
     }
     fn output(&mut self) -> Result<(), String> {
-        println!("{}", self.read_at_offset(1)?,);
+        let out = format!("{}\n", self.read_at_offset(1)?);
+        if let Some(stream) = &mut self.mock_io {
+            use std::io::Write;
+            stream.write_all(out.as_bytes()).unwrap();
+        } else {
+            print!("{}", out);
+        }
         Ok(())
     }
     fn jump_if_true(&mut self) -> Result<bool, String> {
