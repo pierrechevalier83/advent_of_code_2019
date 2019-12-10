@@ -36,6 +36,43 @@ impl Graph {
         let (path_weights, _node_indices) = bellman_ford(&self.graph, source_node).unwrap();
         path_weights.iter().sum()
     }
+    fn shortest_path(
+        source_node: NodeIndex,
+        destination_node: NodeIndex,
+        bellman_ford: (Vec<f32>, Vec<Option<NodeIndex>>),
+    ) -> Vec<NodeIndex> {
+        let (_path_weights, paths) = bellman_ford;
+        let mut next = destination_node;
+        let mut path = Vec::new();
+        path.push(next);
+        while let Some(current) = paths[next.index()] {
+            path.push(current);
+            if current == source_node {
+                return path;
+            }
+            next = current;
+        }
+        path
+    }
+    fn min_num_of_orbital_transfers(
+        &self,
+        start: &'static str,
+        destination: &'static str,
+    ) -> usize {
+        let root_node = self.nodes["COM"];
+        let source_node = self.nodes[start];
+        let destination_node = self.nodes[destination];
+        let bf = bellman_ford(&self.graph, root_node).unwrap();
+        let mut root_to_start = Self::shortest_path(root_node, source_node, bf.clone());
+        let mut root_to_destination = Self::shortest_path(root_node, destination_node, bf);
+        let (mut to_start, mut to_destination) = (root_to_start.pop(), root_to_destination.pop());
+        while to_start.is_some() && to_start == to_destination {
+            to_start = root_to_start.pop();
+            to_destination = root_to_destination.pop();
+        }
+        // We've removed all common ancestors
+        root_to_start.len() + root_to_destination.len()
+    }
 }
 
 impl fmt::Debug for Graph {
@@ -44,8 +81,7 @@ impl fmt::Debug for Graph {
     }
 }
 
-fn parse_input() -> Graph {
-    let data = include_str!("input.txt");
+fn parse_input(data: &'static str) -> Graph {
     let edges = data
         .split(|c| c == '\n')
         .filter(|s| s != &"")
@@ -61,6 +97,34 @@ fn parse_input() -> Graph {
 }
 
 fn main() {
-    let graph = parse_input();
+    let graph = parse_input(include_str!("input.txt"));
     println!("part 1: {}", graph.sum_orbits());
+    println!(
+        "part 2: {}",
+        graph.min_num_of_orbital_transfers("YOU", "SAN")
+    );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_small_example() {
+        let input = "COM)B
+B)C
+C)D
+D)E
+E)F
+B)G
+G)H
+D)I
+E)J
+J)K
+K)L
+K)YOU
+I)SAN";
+
+        let graph = parse_input(input);
+        assert_eq!(4, graph.min_num_of_orbital_transfers("YOU", "SAN"));
+    }
 }
