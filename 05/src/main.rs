@@ -1,4 +1,5 @@
 use intcode_computer::*;
+use mockstream::MockStream;
 
 fn parse_input() -> Vec<isize> {
     let data = include_str!("input.txt");
@@ -7,12 +8,29 @@ fn parse_input() -> Vec<isize> {
         .collect()
 }
 
-fn main() {
-    let mut computer = Computer::from_data(parse_input());
-    println!("\npart 1:\n\nPlease, enter 1: the opcode for the ventilation unit");
-    computer.clone().compute().unwrap();
-    println!("\npart 2:\n\nPlease, enter 5: the ID for the ship's thermal radiocontroller");
+fn compute_with_input(mut computer: Computer, input: isize) -> String {
+    let mut mock_io = MockStream::new();
+    mock_io.push_bytes_to_read(format!("{}\n", input).as_bytes());
+    computer.mock_io = Some(mock_io);
     computer.compute().unwrap();
+    String::from_utf8(computer.mock_io.unwrap().pop_bytes_written()).unwrap()
+}
+
+fn main() {
+    let computer = Computer::from_data(parse_input());
+    {
+        // 1 is the ID for the ship's ventilation unit
+        let out = compute_with_input(computer.clone(), 1);
+        println!(
+            "part 1: {}",
+            out.split('\n').filter(|s| s != &"").last().unwrap()
+        );
+    }
+    {
+        // 5 is the ID for the ship's thermal radiocontroller;
+        let out = compute_with_input(computer.clone(), 5);
+        println!("part 2: {}", out);
+    }
 }
 
 #[cfg(test)]
