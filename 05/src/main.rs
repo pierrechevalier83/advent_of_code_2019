@@ -37,18 +37,50 @@ fn main() {
 mod tests {
     use super::*;
     #[test]
-    #[ignore = "takes user input"]
     fn test_medium_example() {
         /*
         The above example program uses an input instruction to ask for a single number. The program will then output 999 if the input value is below 8, output 1000 if the input value is equal to 8, or output 1001 if the input value is greater than 8.
         */
 
-        let mut computer = Computer::from_data(vec![
+        let computer = Computer::from_data(vec![
             3, 21, 1008, 21, 8, 20, 1005, 20, 22, 107, 8, 21, 20, 1006, 20, 31, 1106, 0, 36, 98, 0,
             0, 1002, 21, 125, 20, 4, 20, 1105, 1, 46, 104, 999, 1105, 1, 46, 1101, 1000, 1, 20, 4,
             20, 1105, 1, 46, 98, 99,
         ]);
-        println!("\nPlease input a value.");
-        computer.compute().unwrap();
+        assert_eq!(
+            999,
+            compute_with_input(computer.clone(), 4)
+                .trim()
+                .parse()
+                .unwrap()
+        );
+        assert_eq!(
+            999,
+            compute_with_input(computer.clone(), 7)
+                .trim()
+                .parse()
+                .unwrap()
+        );
+        assert_eq!(
+            1000,
+            compute_with_input(computer.clone(), 8)
+                .trim()
+                .parse()
+                .unwrap()
+        );
+        assert_eq!(
+            1001,
+            compute_with_input(computer.clone(), 9)
+                .trim()
+                .parse()
+                .unwrap()
+        );
+        assert_eq!(
+            1001,
+            compute_with_input(computer.clone(), 1000)
+                .trim()
+                .parse()
+                .unwrap()
+        );
     }
 }
