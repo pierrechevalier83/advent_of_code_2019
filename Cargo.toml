@@ -33,8 +33,13 @@ path = "05/src/main.rs"
 name = "06"
 path = "06/src/main.rs"
 
+[[bin]]
+name = "07"
+path = "07/src/main.rs"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 petgraph = "0.4.13"
 mockstream = "0.0.3"
+itertools = "0.8.2"
