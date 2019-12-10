@@ -1,5 +1,6 @@
 use mockstream::MockStream;
 use std::convert::TryInto;
+use std::str::FromStr;
 
 #[derive(Eq, PartialEq)]
 pub enum Operation {
@@ -245,5 +246,17 @@ impl Computer {
             op = Operation::from_code(self.data[self.index])?;
         }
         Ok(())
+    }
+}
+
+impl FromStr for Computer {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Self::from_data(
+            s.split(|c| c == '\n' || c == ',')
+                .filter_map(|s| s.parse().ok())
+                .collect(),
+        ))
     }
 }

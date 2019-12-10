@@ -1,11 +1,5 @@
 use intcode_computer::*;
-
-fn parse_input() -> Vec<isize> {
-    let data = include_str!("input.txt");
-    data.split(|c| c == '\n' || c == ',')
-        .filter_map(|s| s.parse().ok())
-        .collect()
-}
+use std::str::FromStr;
 
 /// Once you have a working computer, the first step is to restore the gravity assist program (your
 /// puzzle input) to the "1202 program alarm" state it had just before the last computer caught fire. To do this, before running the program, replace position 1 with the value 12 and replace position 2 with the value 2.
@@ -22,7 +16,7 @@ fn compute_from_inputs(mut computer: Computer, noun: isize, verb: isize) -> Resu
 
 /// What value is left at position 0 after the program halts?
 fn main() {
-    let computer = Computer::from_data(parse_input());
+    let computer = Computer::from_str(include_str!("input.txt")).unwrap();
     println!(
         "part 1: {}",
         compute_from_inputs(computer.clone(), 12, 2).unwrap()

@@ -1,12 +1,6 @@
 use intcode_computer::*;
 use mockstream::MockStream;
-
-fn parse_input() -> Vec<isize> {
-    let data = include_str!("input.txt");
-    data.split(|c| c == '\n' || c == ',')
-        .filter_map(|s| s.parse().ok())
-        .collect()
-}
+use std::str::FromStr;
 
 fn compute_with_input(mut computer: Computer, input: isize) -> String {
     let mut mock_io = MockStream::new();
@@ -17,7 +11,7 @@ fn compute_with_input(mut computer: Computer, input: isize) -> String {
 }
 
 fn main() {
-    let computer = Computer::from_data(parse_input());
+    let computer = Computer::from_str(include_str!("input.txt")).unwrap();
     {
         // 1 is the ID for the ship's ventilation unit
         let out = compute_with_input(computer.clone(), 1);

@@ -1,12 +1,6 @@
 use intcode_computer::*;
 use mockstream::MockStream;
-
-fn parse_input() -> Vec<isize> {
-    let data = include_str!("input.txt");
-    data.split(|c| c == '\n' || c == ',')
-        .filter_map(|s| s.parse().ok())
-        .collect()
-}
+use std::str::FromStr;
 
 fn amplify(mut computer: Computer, input: isize, previous_code: isize) -> isize {
     let mut mock_io = MockStream::new();
@@ -38,7 +32,7 @@ fn max_thruster_signal(computer: Computer) -> isize {
 }
 
 fn main() {
-    let computer = Computer::from_data(parse_input());
+    let computer = Computer::from_str(include_str!("input.txt")).unwrap();
     println!("part 1: {}", max_thruster_signal(computer.clone()));
 }
 
