@@ -100,6 +100,20 @@ impl Default for ParameterMode {
     }
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum ComputationStatus {
+    StarvingForMockInput,
+    Done,
+}
+
+impl Default for ComputationStatus {
+    fn default() -> Self {
+        Self::StarvingForMockInput
+    }
+}
+
+const STARVING_ERROR: &'static str = "Starving for mock input";
+
 #[derive(Clone)]
 pub struct Computer {
     pub data: Vec<isize>,
@@ -165,18 +179,22 @@ impl Computer {
                     break;
                 }
             }
-            input = String::from_utf8(bytes).unwrap();
+            String::from_utf8(bytes)
+                .unwrap()
+                .trim()
+                .parse()
+                .map_err(|_| STARVING_ERROR.to_string())
         } else {
             use std::io;
             println!("Please, enter input:");
             io::stdin()
                 .read_line(&mut input)
                 .map_err(|e| format!("Error parsing user input: {}", e))?;
+            input
+                .trim()
+                .parse()
+                .map_err(|e| format!("Error parsing user input: {}", e))
         }
-        input
-            .trim()
-            .parse()
-            .map_err(|e| format!("Error parsing user input: {}", e))
     }
     fn input(&mut self) -> Result<(), String> {
         let input = self.user_input()?;
@@ -238,14 +256,35 @@ impl Computer {
     fn current_operation(&self) -> Result<Operation, String> {
         Operation::from_code(self.data[self.index])
     }
-    pub fn compute(&mut self) -> Result<(), String> {
+    pub fn compute(&mut self) -> Result<ComputationStatus, String> {
         let mut op = self.current_operation()?;
         while op != Operation::End {
-            let did_jump = op.apply(self)?;
+            let result = op.apply(self);
+            if Err(STARVING_ERROR.to_string()) == result {
+                return Ok(ComputationStatus::StarvingForMockInput);
+            }
+            let did_jump = result?;
             self.next(did_jump)?;
             op = Operation::from_code(self.data[self.index])?;
         }
-        Ok(())
+        Ok(ComputationStatus::Done)
+    }
+    pub fn set_mock_io_input(&mut self, input: &str) {
+        if self.mock_io.is_none() {
+            self.mock_io = Some(MockStream::new());
+        }
+        self.mock_io
+            .as_mut()
+            .unwrap()
+            .push_bytes_to_read(format!("{}\n", input).as_bytes());
+    }
+    pub fn get_mock_io_output(&mut self) -> Result<String, String> {
+        match &mut self.mock_io {
+            Some(ref mut mock_io) => {
+                String::from_utf8(mock_io.pop_bytes_written()).map_err(|e| format!("{}", e))
+            }
+            None => Err(format!("Attempting to get output from None mock_io")),
+        }
     }
 }
 

@@ -1,39 +1,86 @@
 use intcode_computer::*;
-use mockstream::MockStream;
 use std::str::FromStr;
 
-fn amplify(mut computer: Computer, input: isize, previous_code: isize) -> isize {
-    let mut mock_io = MockStream::new();
-    mock_io.push_bytes_to_read(format!("{}\n{}\n", input, previous_code).as_bytes());
-    computer.mock_io = Some(mock_io);
-    computer.compute().unwrap();
-    String::from_utf8(computer.mock_io.unwrap().pop_bytes_written())
-        .unwrap()
-        .trim()
-        .parse()
-        .unwrap()
+struct Amplifiers {
+    computers: Vec<Computer>,
 }
 
-fn amplify_chain(computer: &Computer, amplifier_inputs: &[isize]) -> isize {
-    let mut previous_code = 0;
-    for input in amplifier_inputs {
-        previous_code = amplify(computer.clone(), *input, previous_code);
+impl Amplifiers {
+    fn new(computer: &Computer, phase_settings: &[isize]) -> Self {
+        let mut computers = (0..5).map(|_| computer.clone()).collect::<Vec<_>>();
+        for (index, input) in phase_settings.iter().enumerate() {
+            let computer = &mut computers[index];
+            computer.set_mock_io_input(&format!("{}\n", input));
+            let status = computer.compute().unwrap();
+            assert!(status != ComputationStatus::Done);
+        }
+        Self { computers }
     }
-    previous_code
+    fn amplify(&mut self, input: isize) -> Result<AmplificationStatus, String> {
+        let mut signal = input;
+        let mut status = ComputationStatus::StarvingForMockInput;
+        for computer in self.computers.iter_mut() {
+            computer.set_mock_io_input(&format!("{}", signal));
+            status = computer.compute()?;
+            signal = computer.get_mock_io_output()?.trim().parse().unwrap();
+        }
+        Ok(AmplificationStatus { signal, status })
+    }
 }
 
-fn max_thruster_signal(computer: Computer) -> isize {
-    use itertools::Itertools;
-    (0..=4)
-        .permutations(5)
-        .map(|permutation| amplify_chain(&computer, &permutation))
-        .max()
-        .unwrap()
+#[derive(Default)]
+struct AmplificationStatus {
+    signal: isize,
+    status: ComputationStatus,
+}
+
+mod amplify_once {
+    use super::*;
+    pub(super) fn max_thruster_signal(computer: Computer) -> isize {
+        use itertools::Itertools;
+        (0..=4)
+            .permutations(5)
+            .map(|permutation| amplify_chain(&computer, &permutation))
+            .max()
+            .unwrap()
+    }
+    fn amplify_chain(computer: &Computer, amplifier_inputs: &[isize]) -> isize {
+        let mut amps = Amplifiers::new(computer, amplifier_inputs);
+        amps.amplify(0).unwrap().signal
+    }
+}
+
+mod feedback_loop {
+    use super::*;
+    pub(super) fn amplify_chain(computer: &Computer, amplifier_inputs: &[isize]) -> isize {
+        let mut amps = Amplifiers::new(computer, amplifier_inputs);
+        let mut res = AmplificationStatus::default();
+        while res.status != ComputationStatus::Done {
+            res = amps.amplify(res.signal).unwrap();
+        }
+        res.signal
+    }
+
+    pub(super) fn max_thruster_signal(computer: Computer) -> isize {
+        use itertools::Itertools;
+        (5..=9)
+            .permutations(5)
+            .map(|permutation| amplify_chain(&computer, &permutation))
+            .max()
+            .unwrap()
+    }
 }
 
 fn main() {
     let computer = Computer::from_str(include_str!("input.txt")).unwrap();
-    println!("part 1: {}", max_thruster_signal(computer.clone()));
+    println!(
+        "part 1: {}",
+        amplify_once::max_thruster_signal(computer.clone())
+    );
+    println!(
+        "part 2: {}",
+        feedback_loop::max_thruster_signal(computer.clone())
+    );
 }
 
 #[cfg(test)]
@@ -53,7 +100,7 @@ mod tests {
     }
 
     #[test]
-    fn test_max_thruster_signal() {
+    fn test_amplify_once_max_thruster_signal() {
         let tests = [
             TestCase::from_raw(
                 vec![
@@ -77,7 +124,79 @@ mod tests {
             ),
         ];
         for test in &tests {
-            assert_eq!(test.output, max_thruster_signal(test.computer.clone()));
+            assert_eq!(
+                test.output,
+                amplify_once::max_thruster_signal(test.computer.clone())
+            );
+        }
+    }
+    struct AmpTestCase {
+        computer: Computer,
+        amp: Vec<isize>,
+        output: isize,
+    }
+    impl AmpTestCase {
+        fn from_raw(data: Vec<isize>, amp: Vec<isize>, output: isize) -> Self {
+            Self {
+                computer: Computer::from_data(data),
+                amp,
+                output,
+            }
+        }
+    }
+    #[test]
+    fn test_feedback_loop_amplify_chain() {
+        let tests = [
+            AmpTestCase::from_raw(
+                vec![
+                    3, 26, 1001, 26, -4, 26, 3, 27, 1002, 27, 2, 27, 1, 27, 26, 27, 4, 27, 1001,
+                    28, -1, 28, 1005, 28, 6, 99, 0, 0, 5,
+                ],
+                vec![9, 8, 7, 6, 5],
+                139629729,
+            ),
+            AmpTestCase::from_raw(
+                vec![
+                    3, 52, 1001, 52, -5, 52, 3, 53, 1, 52, 56, 54, 1007, 54, 5, 55, 1005, 55, 26,
+                    1001, 54, -5, 54, 1105, 1, 12, 1, 53, 54, 53, 1008, 54, 0, 55, 1001, 55, 1, 55,
+                    2, 53, 55, 53, 4, 53, 1001, 56, -1, 56, 1005, 56, 6, 99, 0, 0, 0, 0, 10,
+                ],
+                vec![9, 7, 8, 5, 6],
+                18216,
+            ),
+        ];
+        for test in &tests {
+            assert_eq!(
+                test.output,
+                feedback_loop::amplify_chain(&test.computer.clone(), &test.amp)
+            );
+        }
+    }
+
+    #[test]
+    fn test_feedback_loop_max_thruster_signal() {
+        let tests = [
+            TestCase::from_raw(
+                vec![
+                    3, 26, 1001, 26, -4, 26, 3, 27, 1002, 27, 2, 27, 1, 27, 26, 27, 4, 27, 1001,
+                    28, -1, 28, 1005, 28, 6, 99, 0, 0, 5,
+                ],
+                139629729,
+            ),
+            TestCase::from_raw(
+                vec![
+                    3, 52, 1001, 52, -5, 52, 3, 53, 1, 52, 56, 54, 1007, 54, 5, 55, 1005, 55, 26,
+                    1001, 54, -5, 54, 1105, 1, 12, 1, 53, 54, 53, 1008, 54, 0, 55, 1001, 55, 1, 55,
+                    2, 53, 55, 53, 4, 53, 1001, 56, -1, 56, 1005, 56, 6, 99, 0, 0, 0, 0, 10,
+                ],
+                18216,
+            ),
+        ];
+        for test in &tests {
+            assert_eq!(
+                test.output,
+                feedback_loop::max_thruster_signal(test.computer.clone())
+            );
         }
     }
 }

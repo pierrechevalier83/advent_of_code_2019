@@ -1,13 +1,10 @@
 use intcode_computer::*;
-use mockstream::MockStream;
 use std::str::FromStr;
 
 fn compute_with_input(mut computer: Computer, input: isize) -> String {
-    let mut mock_io = MockStream::new();
-    mock_io.push_bytes_to_read(format!("{}\n", input).as_bytes());
-    computer.mock_io = Some(mock_io);
+    computer.set_mock_io_input(&format!("{}\n", input));
     computer.compute().unwrap();
-    String::from_utf8(computer.mock_io.unwrap().pop_bytes_written()).unwrap()
+    computer.get_mock_io_output().unwrap()
 }
 
 fn main() {
