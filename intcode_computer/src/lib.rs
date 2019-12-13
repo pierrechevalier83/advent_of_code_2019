@@ -2,7 +2,7 @@ use mockstream::MockStream;
 use std::convert::TryInto;
 use std::str::FromStr;
 
-#[derive(Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum Operation {
     Add,
     Multiply,
@@ -12,6 +12,7 @@ pub enum Operation {
     JumpIfFalse,
     LessThan,
     Equals,
+    AdjustRelativeBase,
     End,
 }
 
@@ -27,6 +28,7 @@ impl Operation {
             6 => Ok(Self::JumpIfFalse),
             7 => Ok(Self::LessThan),
             8 => Ok(Self::Equals),
+            9 => Ok(Self::AdjustRelativeBase),
             99 => Ok(Self::End),
             _ => Err(format!("Invalid operation: {}", code)),
         }
@@ -34,7 +36,7 @@ impl Operation {
     fn offset(&self) -> usize {
         match self {
             Self::Add | Self::Multiply | Self::LessThan | Self::Equals => 4,
-            Self::Input | Self::Output => 2,
+            Self::Input | Self::Output | Self::AdjustRelativeBase => 2,
             Self::JumpIfTrue | Self::JumpIfFalse => 3,
 
             _ => 0,
@@ -66,6 +68,9 @@ impl Operation {
             Operation::Equals => {
                 computer.equals()?;
             }
+            Operation::AdjustRelativeBase => {
+                computer.adjust_relative_base()?;
+            }
             Operation::End => (),
         }
         Ok(false)
@@ -76,6 +81,7 @@ impl Operation {
 pub enum ParameterMode {
     PositionMode,
     ImmediateMode,
+    RelativeMode,
 }
 
 impl ParameterMode {
@@ -88,6 +94,7 @@ impl ParameterMode {
             .map(|c| match c {
                 '0' => Ok(Self::PositionMode),
                 '1' => Ok(Self::ImmediateMode),
+                '2' => Ok(Self::RelativeMode),
                 _ => Err(format!("Invalid parameter mode in op code: {}", code)),
             })
             .collect()
@@ -118,6 +125,7 @@ const STARVING_ERROR: &'static str = "Starving for mock input";
 pub struct Computer {
     pub data: Vec<isize>,
     pub index: usize,
+    pub relative_base: isize,
     pub mock_io: Option<MockStream>,
 }
 
@@ -126,33 +134,49 @@ impl Computer {
         Self {
             data,
             index: 0,
+            relative_base: 0,
             mock_io: None,
         }
     }
+    fn write_cell(&mut self, index: usize, datum: isize) {
+        if index >= self.data.len() {
+            self.data.resize(2 * index + 1, 0);
+        }
+        self.data[index] = datum;
+    }
     fn write_at_offset(&mut self, offset: usize, datum: isize) -> Result<(), String> {
-        let index = self.index + offset;
-        let store_index: usize = self.data[index]
-            .try_into()
-            .map_err(|e| format!("Attempted to use negative integer as index: {}", e))?;
-        self.data[store_index] = datum;
+        let store_index: usize = self.address_at_offset(offset)?;
+        self.write_cell(store_index, datum);
         Ok(())
     }
-    fn read_at_offset(&self, offset: usize) -> Result<isize, String> {
-        let mode = ParameterMode::from_code(self.data[self.index])?;
-        let mode = mode
+    fn address_at_offset(&self, offset: usize) -> Result<usize, String> {
+        let index = self.index + offset;
+        let mode = self.mode_for_offset(offset)?;
+        match mode {
+            ParameterMode::PositionMode => self.read_cell(index),
+            ParameterMode::ImmediateMode => panic!("Immediate mode is not supported for outputs"),
+            ParameterMode::RelativeMode => (self.read_cell(index) as isize + self.relative_base),
+        }
+        .try_into()
+        .map_err(|e| format!("Attempted to use negative integer as index: {}", e))
+    }
+    fn mode_for_offset(&self, offset: usize) -> Result<ParameterMode, String> {
+        let modes = ParameterMode::from_code(self.read_cell(self.index))?;
+        Ok(modes
             .get(offset - 1)
             .cloned()
-            .unwrap_or(ParameterMode::default());
-        let index = self.index + offset;
+            .unwrap_or(ParameterMode::default()))
+    }
+    fn read_cell(&self, index: usize) -> isize {
+        self.data.get(index).cloned().unwrap_or(0)
+    }
+    fn read_at_offset(&self, offset: usize) -> Result<isize, String> {
+        let mode = self.mode_for_offset(offset)?;
         match mode {
-            ParameterMode::PositionMode => {
-                let store_index: usize = self.data[index]
-                    .try_into()
-                    .map_err(|e| format!("Attempted to use negative integer as index: {}", e))?;
-
-                Ok(self.data[store_index])
+            ParameterMode::PositionMode | ParameterMode::RelativeMode => {
+                Ok(self.read_cell(self.address_at_offset(offset)?))
             }
-            ParameterMode::ImmediateMode => Ok(self.data[index]),
+            ParameterMode::ImmediateMode => Ok(self.read_cell(self.index + offset)),
         }
     }
     fn apply<F>(&mut self, f: F) -> Result<(), String>
@@ -247,6 +271,10 @@ impl Computer {
             self.write_at_offset(3, 0)
         }
     }
+    fn adjust_relative_base(&mut self) -> Result<(), String> {
+        self.relative_base += self.read_at_offset(1)?;
+        Ok(())
+    }
     fn next(&mut self, did_jump: bool) -> Result<(), String> {
         if !did_jump {
             self.index += self.current_operation()?.offset();
@@ -254,7 +282,7 @@ impl Computer {
         Ok(())
     }
     fn current_operation(&self) -> Result<Operation, String> {
-        Operation::from_code(self.data[self.index])
+        Operation::from_code(self.read_cell(self.index))
     }
     pub fn compute(&mut self) -> Result<ComputationStatus, String> {
         let mut op = self.current_operation()?;
@@ -265,7 +293,7 @@ impl Computer {
             }
             let did_jump = result?;
             self.next(did_jump)?;
-            op = Operation::from_code(self.data[self.index])?;
+            op = Operation::from_code(self.read_cell(self.index))?;
         }
         Ok(ComputationStatus::Done)
     }
