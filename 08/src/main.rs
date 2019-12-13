@@ -1,15 +1,49 @@
-fn count_digit(slice: &[u8], digit: u8) -> usize {
-    slice.into_iter().filter(|d| d == &&digit).count()
+use std::convert::TryFrom;
+use std::fmt::{self, Display, Formatter};
+use std::slice::Chunks;
+
+fn count_color(slice: &[Color], color: Color) -> usize {
+    slice.into_iter().filter(|c| c == &&color).count()
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+enum Color {
+    Black,
+    White,
+    Transparent,
+}
+
+impl TryFrom<u32> for Color {
+    type Error = String;
+    fn try_from(color: u32) -> Result<Color, Self::Error> {
+        match color {
+            0 => Ok(Self::Black),
+            1 => Ok(Self::White),
+            2 => Ok(Self::Transparent),
+            _ => Err(format!("Digit {} can not be converted to a color", color)),
+        }
+    }
+}
+
+impl Display for Color {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let px = match self {
+            Color::Black => "██",
+            Color::White => "░░",
+            Color::Transparent => "  ",
+        };
+        write!(f, "{}", px)
+    }
 }
 
 struct Image {
-    pixels: Vec<u8>,
+    pixels: Vec<Color>,
     n_cols: usize,
     n_rows: usize,
 }
 
 impl Image {
-    fn new(pixels: Vec<u8>, n_cols: usize, n_rows: usize) -> Self {
+    fn new(pixels: Vec<Color>, n_cols: usize, n_rows: usize) -> Self {
         Self {
             pixels,
             n_cols,
@@ -19,22 +53,62 @@ impl Image {
     fn layer_size(&self) -> usize {
         self.n_cols * self.n_rows
     }
+    fn layers(&self) -> Chunks<Color> {
+        self.pixels.chunks(self.layer_size())
+    }
     fn checksum(&self) -> usize {
-        let layers = self.pixels.chunks(self.layer_size());
-        let interesting_layer = layers
-            .min_by(|lhs, rhs| count_digit(lhs, 0).cmp(&count_digit(rhs, 0)))
+        let interesting_layer = self
+            .layers()
+            .min_by(|lhs, rhs| count_color(lhs, Color::Black).cmp(&count_color(rhs, Color::Black)))
             .unwrap();
-        count_digit(interesting_layer, 1) * count_digit(interesting_layer, 2)
+        count_color(interesting_layer, Color::White)
+            * count_color(interesting_layer, Color::Transparent)
+    }
+    fn render_pixel_stack<'a, I>(stack: I) -> Color
+    where
+        I: Iterator<Item = &'a Color>,
+    {
+        for color in stack {
+            if *color != Color::Transparent {
+                return color.clone();
+            }
+        }
+        panic!("All pixels in this stack were transparent");
+    }
+    fn render(&self) -> Vec<Color> {
+        (0..self.layer_size())
+            .map(|index| {
+                Self::render_pixel_stack(self.pixels.iter().skip(index).step_by(self.layer_size()))
+            })
+            .collect()
+    }
+}
+
+impl Display for Image {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let image = self
+            .render()
+            .chunks(self.n_cols)
+            .map(|chunk| {
+                let row = chunk
+                    .iter()
+                    .map(|color| format!("{}", color))
+                    .collect::<String>();
+                format!("{}\n", row)
+            })
+            .collect::<String>();
+        write!(f, "{}", image)
     }
 }
 
 fn main() {
     let pixels = include_str!("input.txt")
         .chars()
-        .filter_map(|c| c.to_digit(10).map(|d| d as u8))
+        .filter_map(|c| c.to_digit(10).map(|d| Color::try_from(d).unwrap()))
         .collect();
     let image = Image::new(pixels, 25, 6);
     println!("part 1 : {}", image.checksum());
+    println!("part 2 : \n{}", image);
 }
 
 #[cfg(test)]
