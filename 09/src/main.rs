@@ -11,6 +11,14 @@ fn main() {
         let output = computer.get_mock_io_output().unwrap();
         println!("part 1: {}", output);
     }
+    {
+        // 2: sensor boost mode
+        let mut computer = computer.clone();
+        computer.set_mock_io_input("2");
+        computer.compute().unwrap();
+        let output = computer.get_mock_io_output().unwrap();
+        println!("part 2: {}", output);
+    }
 }
 
 #[cfg(test)]
