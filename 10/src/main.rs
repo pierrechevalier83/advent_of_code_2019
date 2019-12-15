@@ -50,14 +50,6 @@ struct Line {
     origin: Point,
 }
 
-// |x| | |
-// | | | | => -2 (0,0) - (1, 2)
-// | |y| | (y.1 - x.1) / (y.0 - x.0) or vertical
-
-// | |x| |
-// | | | | => 2 (1,0) - (0, 2)
-// |y| | | (y.1 - x.1) / (y.0 - x.0) or vertical
-
 impl Line {
     fn calculate_slope(x: Point, y: Point) -> Fraction {
         if x >= y {
@@ -102,6 +94,9 @@ impl Line {
         }
         points
     }
+    fn contains(&self, point: Point) -> bool {
+        point == self.origin || self.slope == Self::calculate_slope(self.origin, point)
+    }
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -129,58 +124,45 @@ impl AsteroidMap {
             for point in self.positions[index + 1..].iter() {
                 if !lines_passing_by_origin
                     .iter()
-                    .any(|line| line.points(self.n_cols, self.n_rows).contains(point))
+                    .any(|line| line.contains(*point))
                 {
                     let line = Line::from_sorted_points(*origin, *point);
-                    if self.asteroids_line(line).count() > 1 {
-                        for point in self.asteroids_line(line) {
-                            if !all_lines
-                                .get_vec(&point)
-                                .map(|l| l.contains(&line))
-                                .unwrap_or(false)
-                            {
-                                all_lines.insert(point, line);
-                            }
+                    for point in self.asteroids_line(line) {
+                        if !all_lines
+                            .get_vec(&point)
+                            .map(|l| l.contains(&line))
+                            .unwrap_or(false)
+                        {
+                            all_lines.insert(point, line);
                         }
-                    } else {
-                        println!(
-                            "asteroids: {:?}\n\tline: {:?}\n",
-                            self.asteroids_line(line).collect::<Vec<_>>(),
-                            line,
-                        );
-                        panic!("Line: {:?} had only one point", line);
                     }
                 }
             }
         }
         all_lines
     }
-    fn n_asteroids_seen(&self) -> Vec<(Point, usize)> {
+    fn n_asteroids_seen(&self) -> impl Iterator<Item = (Point, usize)> + '_ {
         let all_lines = self.all_lines();
-        self.positions
-            .iter()
-            .map(|position| {
-                let lines = all_lines.get_vec(position).unwrap().clone();
-                let n_asteroids_seen = lines
-                    .into_iter()
-                    .map(|line| {
-                        if Some(*position) == self.asteroids_line(line).next()
-                            || Some(*position) == self.asteroids_line(line).last()
-                        {
-                            1
-                        } else {
-                            2
-                        }
-                    })
-                    .sum();
-                (*position, n_asteroids_seen)
-            })
-            .collect()
+        self.positions.iter().map(move |position| {
+            let lines = all_lines.get_vec(position).unwrap().clone();
+            let n_asteroids_seen = lines
+                .iter()
+                .map(|line| {
+                    let mut asteroids_line = self.asteroids_line(*line);
+                    if Some(*position) == asteroids_line.next()
+                        || Some(*position) == asteroids_line.last()
+                    {
+                        1
+                    } else {
+                        2
+                    }
+                })
+                .sum();
+            (*position, n_asteroids_seen)
+        })
     }
     fn most_asteroids_seen(&self) -> usize {
-        *self
-            .n_asteroids_seen()
-            .iter()
+        self.n_asteroids_seen()
             .map(|(_point, count)| count)
             .max()
             .unwrap()
