@@ -181,12 +181,31 @@ fn draw(map: HashMap<Point, Color>) -> String {
 
 fn main() {
     let brain = Computer::from_str(include_str!("input.txt")).unwrap();
-    let mut beebop = Robot::new(brain.clone(), None);
-    beebop.walk();
-    let num_written_starting_with_black = beebop.map.len();
-    assert_eq!(2160, num_written_starting_with_black);
-    println!("part 1: {}", num_written_starting_with_black);
-    let mut beebop = Robot::new(brain, Some(Color::White));
-    beebop.walk();
-    println!("part 2: \n{}", draw(beebop.map));
+    {
+        let mut beebop = Robot::new(brain.clone(), None);
+        beebop.walk();
+        let part_1 = beebop.map.len();
+        assert_eq!(2160, part_1);
+        println!("part 1: {}", part_1);
+    }
+    {
+        let mut beebop = Robot::new(brain, Some(Color::White));
+        beebop.walk();
+        let part_2 = draw(beebop.map);
+        assert_eq!(
+            "██░░████████░░░░░░████░░░░░░░░██░░░░░░░░████░░░░██████░░░░████░░░░░░░░██░░░░░░░░██████
+██░░████████░░████░░████████░░██░░████████░░████░░██░░████░░██░░████████░░████████████
+██░░████████░░████░░██████░░████░░░░░░████░░████████░░████████░░░░░░████░░░░░░████████
+██░░████████░░░░░░██████░░██████░░████████░░████████░░██░░░░██░░████████░░████████████
+██░░████████░░██░░████░░████████░░████████░░████░░██░░████░░██░░████████░░████████████
+██░░░░░░░░██░░████░░██░░░░░░░░██░░░░░░░░████░░░░██████░░░░░░██░░████████░░░░░░░░██████
+",
+            part_2
+        );
+        println!(
+            "part 2: 
+{}",
+            part_2
+        );
+    }
 }

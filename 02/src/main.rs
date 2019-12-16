@@ -17,14 +17,15 @@ fn compute_from_inputs(mut computer: Computer, noun: isize, verb: isize) -> Resu
 /// What value is left at position 0 after the program halts?
 fn main() {
     let computer = Computer::from_str(include_str!("input.txt")).unwrap();
-    println!(
-        "part 1: {}",
-        compute_from_inputs(computer.clone(), 12, 2).unwrap()
-    );
+    let part_1 = compute_from_inputs(computer.clone(), 12, 2).unwrap();
+    assert_eq!(4090701, part_1);
+    println!("part 1: {}", part_1);
     for noun in 0..99 {
         for verb in 0..99 {
             if compute_from_inputs(computer.clone(), noun, verb) == Ok(19690720) {
-                println!("part 2: {}", 100 * noun + verb);
+                let part_2 = 100 * noun + verb;
+                assert_eq!(6421, part_2);
+                println!("part 2: {}", part_2);
                 return;
             }
         }

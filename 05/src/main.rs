@@ -12,15 +12,15 @@ fn main() {
     {
         // 1 is the ID for the ship's ventilation unit
         let out = compute_with_input(computer.clone(), 1);
-        println!(
-            "part 1: {}",
-            out.split('\n').filter(|s| s != &"").last().unwrap()
-        );
+        let part_1 = out.split('\n').filter(|s| s != &"").last().unwrap();
+        assert_eq!("15426686", part_1.trim());
+        println!("part 1: {}", part_1.trim());
     }
     {
         // 5 is the ID for the ship's thermal radiocontroller;
-        let out = compute_with_input(computer.clone(), 5);
-        println!("part 2: {}", out);
+        let part_2 = compute_with_input(computer.clone(), 5);
+        assert_eq!("11430197", part_2.trim());
+        println!("part 2: {}", part_2.trim());
     }
 }
 

@@ -297,10 +297,14 @@ impl AsteroidMap {
 fn main() {
     let asteroids = AsteroidMap::from_str(include_str!("input.txt").trim()).unwrap();
     let best_asteroid = asteroids.most_asteroids_seen();
-    println!("part 1: {}", best_asteroid.1);
+    let part_1 = best_asteroid.1;
+    assert_eq!(326, part_1);
+    println!("part 1: {}", part_1);
     let laser_position = best_asteroid.0;
     let two_hundredth = asteroids.vaporized(laser_position).nth(199).unwrap();
-    println!("part 2: {}", two_hundredth.col * 100 + two_hundredth.row);
+    let part_2 = two_hundredth.col * 100 + two_hundredth.row;
+    assert_eq!(1623, part_2);
+    println!("part 2: {}", part_2);
 }
 
 #[cfg(test)]

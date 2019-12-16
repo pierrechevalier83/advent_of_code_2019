@@ -73,14 +73,12 @@ mod feedback_loop {
 
 fn main() {
     let computer = Computer::from_str(include_str!("input.txt")).unwrap();
-    println!(
-        "part 1: {}",
-        amplify_once::max_thruster_signal(computer.clone())
-    );
-    println!(
-        "part 2: {}",
-        feedback_loop::max_thruster_signal(computer.clone())
-    );
+    let part_1 = amplify_once::max_thruster_signal(computer.clone());
+    assert_eq!(46248, part_1);
+    println!("part 1: {}", part_1);
+    let part_2 = feedback_loop::max_thruster_signal(computer.clone());
+    assert_eq!(54163586, part_2);
+    println!("part 2: {}", part_2);
 }
 
 #[cfg(test)]

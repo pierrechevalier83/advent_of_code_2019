@@ -337,18 +337,16 @@ fn parse_input() -> Vec<Wire> {
 
 fn main() {
     let wires = parse_input();
-    println!(
-        "part 1: {}",
-        wires[0]
-            .manhattan_distance_from_closest_intersection_to_origin(&wires[1])
-            .unwrap()
-    );
-    println!(
-        "part 2: {}",
-        wires[0]
-            .wire_distance_from_closest_intersection_to_origin(&wires[1])
-            .unwrap()
-    );
+    let part_1 = wires[0]
+        .manhattan_distance_from_closest_intersection_to_origin(&wires[1])
+        .unwrap();
+    assert_eq!(273, part_1);
+    println!("part 1: {}", part_1);
+    let part_2 = wires[0]
+        .wire_distance_from_closest_intersection_to_origin(&wires[1])
+        .unwrap();
+    assert_eq!(15622, part_2);
+    println!("part 2: {}", part_2);
 }
 
 #[cfg(test)]

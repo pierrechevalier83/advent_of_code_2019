@@ -107,12 +107,14 @@ fn main() {
     {
         let start: Number = start.into();
         let count = start.take_while(|n| *n < end).count();
+        assert_eq!(1019, count);
         println!("part 1: {}", count)
     }
     {
         let mut start: Number = start.into();
         start.mode = Mode::ExactlyTwoAdjacentDigits;
         let count = start.take_while(|n| *n < end).count();
+        assert_eq!(660, count);
         println!("part 2: {}", count)
     }
 }

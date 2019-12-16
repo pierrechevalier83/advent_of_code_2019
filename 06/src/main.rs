@@ -98,11 +98,13 @@ fn parse_input(data: &'static str) -> Graph {
 
 fn main() {
     let graph = parse_input(include_str!("input.txt"));
-    println!("part 1: {}", graph.sum_orbits());
-    println!(
-        "part 2: {}",
-        graph.min_num_of_orbital_transfers("YOU", "SAN")
-    );
+    let part_1 = graph.sum_orbits();
+    assert_eq!(344238., part_1);
+    println!("part 1: {}", part_1);
+
+    let part_2 = graph.min_num_of_orbital_transfers("YOU", "SAN");
+    assert_eq!(436, part_2);
+    println!("part 2: {}", part_2);
 }
 
 #[cfg(test)]

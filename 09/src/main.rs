@@ -9,7 +9,8 @@ fn main() {
         computer.set_mock_io_input("1");
         computer.compute().unwrap();
         let output = computer.get_mock_io_output().unwrap();
-        println!("part 1: {}", output);
+        assert_eq!("2171728567", output.trim());
+        println!("part 1: {}", output.trim());
     }
     {
         // 2: sensor boost mode
@@ -17,7 +18,8 @@ fn main() {
         computer.set_mock_io_input("2");
         computer.compute().unwrap();
         let output = computer.get_mock_io_output().unwrap();
-        println!("part 2: {}", output);
+        assert_eq!("49815", output.trim());
+        println!("part 2: {}", output.trim());
     }
 }
 
