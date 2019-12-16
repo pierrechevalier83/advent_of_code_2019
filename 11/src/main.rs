@@ -114,10 +114,14 @@ struct Robot {
 }
 
 impl Robot {
-    fn new(brain: Computer) -> Self {
+    fn new(brain: Computer, initial_cell: Option<Color>) -> Self {
+        let mut map = HashMap::new();
+        if let Some(color) = initial_cell {
+            map.insert(Point::default(), color);
+        }
         Self {
             brain,
-            map: HashMap::new(),
+            map,
             position: Point::default(),
             direction: Direction::default(),
         }
@@ -151,9 +155,38 @@ impl Robot {
     }
 }
 
+fn draw(map: HashMap<Point, Color>) -> String {
+    let cmp_x = |left: &&Point, right: &&Point| left.x.cmp(&right.x);
+    let cmp_y = |left: &&Point, right: &&Point| left.y.cmp(&right.y);
+    let min_x = map.keys().min_by(cmp_x).unwrap().x;
+    let max_x = map.keys().max_by(cmp_x).unwrap().x;
+    let min_y = map.keys().min_by(cmp_y).unwrap().y;
+    let max_y = map.keys().max_by(cmp_y).unwrap().y;
+    (min_y..=max_y)
+        .rev()
+        .map(|y| {
+            (min_x..=max_x)
+                .map(|x| {
+                    if map.get(&Point::new(x, y)) == Some(&Color::White) {
+                        "░░"
+                    } else {
+                        "██"
+                    }
+                })
+                .collect::<String>()
+                + "\n"
+        })
+        .collect::<String>()
+}
+
 fn main() {
     let brain = Computer::from_str(include_str!("input.txt")).unwrap();
-    let mut beebop = Robot::new(brain);
+    let mut beebop = Robot::new(brain.clone(), None);
     beebop.walk();
-    println!("part 1: {}", beebop.map.len());
+    let num_written_starting_with_black = beebop.map.len();
+    assert_eq!(2160, num_written_starting_with_black);
+    println!("part 1: {}", num_written_starting_with_black);
+    let mut beebop = Robot::new(brain, Some(Color::White));
+    beebop.walk();
+    println!("part 2: \n{}", draw(beebop.map));
 }
