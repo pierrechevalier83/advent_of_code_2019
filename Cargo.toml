@@ -53,6 +53,10 @@ path = "10/src/main.rs"
 name = "11"
 path = "11/src/main.rs"
 
+[[bin]]
+name = "12"
+path = "12/src/main.rs"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
