@@ -1,4 +1,5 @@
-use std::collections::HashMap;
+use primes::PrimeSet;
+use std::collections::BTreeMap;
 use std::fmt;
 use std::ops::Add;
 
@@ -113,7 +114,7 @@ impl Moon {
 
 #[derive(Clone, Eq, PartialEq)]
 struct Moons {
-    moons: HashMap<&'static str, Moon>,
+    moons: BTreeMap<&'static str, Moon>,
 }
 
 impl fmt::Debug for Moons {
@@ -182,15 +183,68 @@ impl Moons {
     fn total_energy(&self) -> isize {
         self.moons.values().map(Moon::total_energy).sum()
     }
+    fn pos_and_vel_on_axis(&self, axis: usize) -> Vec<(isize, isize)> {
+        self.moons
+            .values()
+            .map(|moon| {
+                (
+                    moon.position.iter().nth(axis).unwrap(),
+                    moon.velocity.iter().nth(axis).unwrap(),
+                )
+            })
+            .collect()
+    }
 }
 
+#[derive(Clone)]
 struct Simulation {
     moons: Moons,
+    initial: Moons,
 }
 
 impl Simulation {
     fn new(moons: Moons) -> Self {
-        Self { moons }
+        Self {
+            moons: moons.clone(),
+            initial: moons,
+        }
+    }
+    fn detect_period_on_axis(&mut self, axis: usize) -> usize {
+        let initial = self.initial.pos_and_vel_on_axis(axis);
+        self.clone()
+            .take_while(|next| next.pos_and_vel_on_axis(axis) != initial)
+            .count()
+            + 1
+    }
+    fn detect_period(&mut self) -> usize {
+        let mut prime_set = PrimeSet::new();
+        let prime_decompositions = (0..3)
+            .map(|axis| self.detect_period_on_axis(axis))
+            .map(|period| prime_set.prime_factors(period as u64))
+            .collect::<Vec<_>>();
+        let mut prime_factors = prime_decompositions.iter().flatten().collect::<Vec<_>>();
+        prime_factors.sort();
+        prime_factors.dedup();
+
+        let overall_period: u64 = prime_factors
+            .iter()
+            .map(|p| {
+                let product: u64 = prime_decompositions
+                    .iter()
+                    .max_by(|left, right| {
+                        left.iter()
+                            .filter(|e| e == p)
+                            .count()
+                            .cmp(&right.iter().filter(|e| e == p).count())
+                    })
+                    .unwrap()
+                    .iter()
+                    .filter(|e| e == p)
+                    .product();
+                product
+            })
+            .product();
+        overall_period as usize
     }
 }
 
@@ -210,10 +264,18 @@ fn main() {
         ("Ganymede", (6, -2, -6)),
         ("Callisto", (19, 11, 9)),
     ]);
-    let mut simulation = Simulation::new(initial_moons);
-    let part_1 = simulation.nth(999).unwrap().total_energy();
-    assert_eq!(9441, part_1);
-    println!("part 1: {}", part_1);
+    {
+        let mut simulation = Simulation::new(initial_moons.clone());
+        let part_1 = simulation.nth(999).unwrap().total_energy();
+        assert_eq!(9441, part_1);
+        println!("part 1: {}", part_1);
+    }
+    {
+        let mut simulation = Simulation::new(initial_moons);
+        let part_2 = simulation.detect_period();
+        assert_eq!(503560201099704, part_2);
+        println!("part 2: {}", part_2);
+    }
 }
 
 #[cfg(test)]
@@ -302,5 +364,16 @@ mod tests {
         ]);
         let mut simulation = Simulation::new(initial_moons);
         assert_eq!(179, simulation.nth(9).unwrap().total_energy());
+    }
+    #[test]
+    fn test_detect_period() {
+        let initial_moons = Moons::new_still(&[
+            ("Io", (-1, -0, 2)),
+            ("Europa", (2, -10, -7)),
+            ("Ganymede", (4, -8, 8)),
+            ("Callisto", (3, 5, -1)),
+        ]);
+        let mut simulation = Simulation::new(initial_moons);
+        assert_eq!(2772, simulation.detect_period());
     }
 }
