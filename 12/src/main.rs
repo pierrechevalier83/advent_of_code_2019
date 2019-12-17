@@ -1,10 +1,3 @@
-/*
-<x=17, y=-7, z=-11>
-<x=1, y=4, z=-1>
-<x=6, y=-2, z=-6>
-<x=19, y=11, z=9>
-
-*/
 use std::collections::HashMap;
 use std::fmt;
 use std::ops::Add;
@@ -107,6 +100,15 @@ impl Moon {
             velocity: self.velocity,
         }
     }
+    fn potential_energy(&self) -> isize {
+        self.position.iter().map(isize::abs).sum()
+    }
+    fn kinetic_energy(&self) -> isize {
+        self.velocity.iter().map(isize::abs).sum()
+    }
+    fn total_energy(&self) -> isize {
+        self.potential_energy() * self.kinetic_energy()
+    }
 }
 
 #[derive(Clone, Eq, PartialEq)]
@@ -133,6 +135,7 @@ impl Moons {
                 .collect(),
         }
     }
+    #[cfg(test)]
     fn new_moving(moons: &[(&'static str, (isize, isize, isize), (isize, isize, isize))]) -> Self {
         Self {
             moons: moons
@@ -176,6 +179,9 @@ impl Moons {
     fn simulate_motion_for_one_step(&self) -> Self {
         self.apply_gravity().apply_velocity()
     }
+    fn total_energy(&self) -> isize {
+        self.moons.values().map(Moon::total_energy).sum()
+    }
 }
 
 struct Simulation {
@@ -197,13 +203,24 @@ impl Iterator for Simulation {
     }
 }
 
-fn main() {}
+fn main() {
+    let initial_moons = Moons::new_still(&[
+        ("Io", (17, -7, -11)),
+        ("Europa", (1, 4, -1)),
+        ("Ganymede", (6, -2, -6)),
+        ("Callisto", (19, 11, 9)),
+    ]);
+    let mut simulation = Simulation::new(initial_moons);
+    let part_1 = simulation.nth(999).unwrap().total_energy();
+    assert_eq!(9441, part_1);
+    println!("part 1: {}", part_1);
+}
 
 #[cfg(test)]
 mod tests {
     use super::*;
     #[test]
-    fn test_simulate_motion_for_one_step() {
+    fn test_simulate_motion() {
         let initial_moons = Moons::new_still(&[
             ("Io", (-1, -0, 2)),
             ("Europa", (2, -10, -7)),
@@ -274,5 +291,16 @@ mod tests {
         ];
         let simulation = Simulation::new(initial_moons);
         assert_eq!(evolving_moons, simulation.take(10).collect::<Vec<_>>());
+    }
+    #[test]
+    fn test_total_energy() {
+        let initial_moons = Moons::new_still(&[
+            ("Io", (-1, -0, 2)),
+            ("Europa", (2, -10, -7)),
+            ("Ganymede", (4, -8, 8)),
+            ("Callisto", (3, 5, -1)),
+        ]);
+        let mut simulation = Simulation::new(initial_moons);
+        assert_eq!(179, simulation.nth(9).unwrap().total_energy());
     }
 }
