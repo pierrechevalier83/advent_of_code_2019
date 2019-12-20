@@ -58,20 +58,14 @@ impl FromStr for ExplorationStep {
     }
 }
 
-struct Robot {
-    computer: Computer,
-    maze: HashMap<Coord, TileContent>,
-    robot: Coord,
-    direction_stack: VecDeque<CardinalDirection>,
-    backtracking: bool,
-}
+#[derive(Clone, Default)]
+struct Maze(HashMap<Coord, TileContent>);
 
-impl Display for Robot {
+impl Display for Maze {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let cmp_x = |left: &&Coord, right: &&Coord| left.x.cmp(&right.x);
         let cmp_y = |left: &&Coord, right: &&Coord| left.y.cmp(&right.y);
-        let mut map = self.maze.clone();
-        map.insert(self.robot, TileContent::Robot);
+        let mut map = self.0.clone();
         let min_x = map.keys().min_by(cmp_x).unwrap().x;
         let max_x = map.keys().max_by(cmp_x).unwrap().x;
         let max_y = map.keys().max_by(cmp_y).unwrap().y;
@@ -90,11 +84,20 @@ impl Display for Robot {
     }
 }
 
+#[derive(Clone)]
+struct Robot {
+    computer: Computer,
+    maze: Maze,
+    robot: Coord,
+    direction_stack: VecDeque<CardinalDirection>,
+    backtracking: bool,
+}
+
 impl Robot {
     fn new(input: &str) -> Self {
         let computer = Computer::from_str(input).unwrap();
-        let mut maze = HashMap::new();
-        maze.insert(Coord::default(), TileContent::StartingPoint);
+        let mut maze = Maze::default();
+        maze.0.insert(Coord::default(), TileContent::StartingPoint);
         Self {
             computer,
             maze,
@@ -103,32 +106,29 @@ impl Robot {
             backtracking: false,
         }
     }
-    fn walk_maze(&mut self) {
-        let mut direction = CardinalDirection::North;
-        let mut n = 0;
+    fn walk_maze(&mut self, primary_direction: CardinalDirection) {
+        let mut direction = primary_direction;
         let mut status = ComputationStatus::StarvingForMockInput;
         while !self
             .maze
+            .0
             .values()
             .any(|tile| tile == &TileContent::OxygenTank)
-            && n < 1000
             && status != ComputationStatus::Done
         {
-            n += 1;
-            println!(">>\n{}\n<<", self);
             self.computer
                 .set_mock_io_input(&format!("{}", direction_code(direction)));
             status = self.computer.compute().unwrap();
             let output = self.computer.get_mock_io_output().unwrap();
             let step = ExplorationStep::from_str(output.trim()).unwrap();
-            direction = self.explore(step, direction);
+            direction = self.explore(step, direction, primary_direction);
         }
-        println!(">>\n{}\n<<", self);
     }
     fn explore(
         &mut self,
         step: ExplorationStep,
         direction: CardinalDirection,
+        primary_direction: CardinalDirection,
     ) -> CardinalDirection {
         match step {
             ExplorationStep::HitWall => self.insert_tile_ahead(direction, TileContent::Wall),
@@ -137,9 +137,9 @@ impl Robot {
                 self.insert_tile_ahead(direction, TileContent::OxygenTank)
             }
         }
-        self.decide_next_direction()
+        self.decide_next_direction(primary_direction)
     }
-    fn decide_next_direction(&mut self) -> CardinalDirection {
+    fn decide_next_direction(&mut self, primary_direction: CardinalDirection) -> CardinalDirection {
         if self.dead_end() {
             self.backtracking = true;
             return self.direction_stack.pop_back().unwrap().opposite();
@@ -147,12 +147,11 @@ impl Robot {
             self.backtracking = false;
         }
 
-        let mut direction = CardinalDirection::North;
+        let mut direction = primary_direction;
         while self.tile_ahead(direction).is_some() {
             direction = direction.left90();
-            if direction == CardinalDirection::North {
+            if direction == primary_direction {
                 self.backtracking = true;
-                //return self.direction_stack.pop_back().unwrap().opposite();
                 break;
             }
         }
@@ -162,21 +161,31 @@ impl Robot {
         CardinalDirectionIter::new().all(|direction| self.tile_ahead(direction).is_some())
     }
     fn tile_ahead(&self, direction: CardinalDirection) -> Option<TileContent> {
-        self.maze.get(&(self.robot + direction.coord())).copied()
+        self.maze.0.get(&(self.robot + direction.coord())).copied()
     }
     fn move_one_step(&mut self, direction: CardinalDirection) {
-        let _ = self.maze.entry(self.robot).or_insert(TileContent::Visited);
+        let _ = self
+            .maze
+            .0
+            .entry(self.robot)
+            .or_insert(TileContent::Visited);
         self.robot += direction.coord();
         if !self.backtracking {
             self.direction_stack.push_back(direction);
         }
     }
     fn insert_tile_ahead(&mut self, direction: CardinalDirection, tile: TileContent) {
-        let _ = self.maze.insert(self.robot + direction.coord(), tile);
+        let _ = self.maze.0.insert(self.robot + direction.coord(), tile);
     }
 }
 
 fn main() {
-    let mut robot = Robot::new(include_str!("input.txt"));
-    robot.walk_maze();
+    let mut full_maze = Maze::default();
+    let robot = Robot::new(include_str!("input.txt"));
+    for primary_direction in CardinalDirectionIter::new() {
+        let mut robot = robot.clone();
+        robot.walk_maze(primary_direction);
+        full_maze.0.extend(robot.maze.0);
+    }
+    println!("full map:\n{}", full_maze);
 }
