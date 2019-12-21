@@ -1,7 +1,7 @@
 use direction::{CardinalDirection, CardinalDirectionIter, Coord};
 use intcode_computer::{ComputationStatus, Computer};
 use petgraph::algo::astar;
-use petgraph::{dot::Dot, graph::DiGraph};
+use petgraph::{graph::DiGraph, Direction};
 use std::collections::{HashMap, VecDeque};
 use std::{
     fmt::{self, Display, Formatter},
@@ -160,9 +160,12 @@ impl Maze {
     }
     // Represent the maze as a graph of intersections, with the distance between intersections on
     // the edges
-    fn as_graph(&self) -> DiGraph<Coord, usize> {
-        let edges = self.build_edges_from(DirectedCoord::default());
-        let nodes = std::iter::once(Coord::default())
+    fn as_graph_from(&self, coord: Coord) -> DiGraph<Coord, usize> {
+        let edges = self.build_edges_from(DirectedCoord {
+            coord: coord,
+            incoming: coord,
+        });
+        let nodes = std::iter::once(coord)
             .chain(edges.iter().map(|(edge, _point)| edge.target))
             .collect::<Vec<_>>();
         let mut graph = DiGraph::<Coord, usize>::from_edges(edges.iter().map(|(edge, _point)| {
@@ -177,18 +180,15 @@ impl Maze {
         }
         graph
     }
-    fn shortest_path_to_oxygen(&self) -> usize {
-        let graph = self.as_graph();
-        println!("{:?}", Dot::new(&graph));
-        let start = self.find_tile(&TileContent::StartingPoint);
-        let destination = self.find_tile(&TileContent::OxygenTank);
+    fn shortest_path(&self, start: Coord, destination: Coord) -> Option<usize> {
+        let graph = self.as_graph_from(start);
 
         let start_index = graph
             .node_indices()
             .find(|index| graph.node_weight(*index) == Some(&start))
             .unwrap();
 
-        let path = astar(
+        astar(
             &graph,
             start_index,
             |finish| graph.node_weight(finish) == Some(&destination),
@@ -201,16 +201,24 @@ impl Maze {
                 cost
             },
         )
-        .unwrap();
-        println!("{:?}", path);
-        println!(
-            "{:#?}",
-            path.1
-                .iter()
-                .map(|i| graph.node_weight(*i))
-                .collect::<Vec<_>>()
-        );
-        path.0
+        .map(|(weight, _path)| weight)
+    }
+    fn shortest_path_to_oxygen(&self) -> usize {
+        let start = self.find_tile(&TileContent::StartingPoint);
+        let destination = self.find_tile(&TileContent::OxygenTank);
+        self.shortest_path(start, destination).unwrap()
+    }
+    fn total_time_for_oxyen_to_fill_maze(&self) -> usize {
+        let start = self.find_tile(&TileContent::OxygenTank);
+        let graph = self.as_graph_from(start);
+        graph
+            .externals(Direction::Outgoing)
+            .map(|dead_end| {
+                let destination = graph.node_weight(dead_end).unwrap().clone();
+                self.shortest_path(start, destination).unwrap()
+            })
+            .max()
+            .unwrap_or(42)
     }
 }
 
@@ -318,7 +326,10 @@ fn main() {
         robot.walk_maze(primary_direction);
         full_maze.0.extend(robot.maze.0);
     }
-    println!("full map:\n{}", full_maze);
     let part_1 = full_maze.shortest_path_to_oxygen();
+    assert_eq!(248, part_1);
     println!("part 1: {}", part_1);
+    let part_2 = full_maze.total_time_for_oxyen_to_fill_maze();
+    assert_eq!(382, part_2);
+    println!("part 2: {}", part_2);
 }
