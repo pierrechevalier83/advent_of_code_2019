@@ -1,5 +1,7 @@
 use direction::{CardinalDirection, CardinalDirectionIter, Coord};
 use intcode_computer::{ComputationStatus, Computer};
+use petgraph::algo::astar;
+use petgraph::{dot::Dot, graph::DiGraph};
 use std::collections::{HashMap, VecDeque};
 use std::{
     fmt::{self, Display, Formatter},
@@ -58,6 +60,19 @@ impl FromStr for ExplorationStep {
     }
 }
 
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+struct DirectedCoord {
+    incoming: Coord,
+    coord: Coord,
+}
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+struct Edge {
+    origin: Coord,
+    target: Coord,
+    weight: usize,
+}
+
 #[derive(Clone, Default)]
 struct Maze(HashMap<Coord, TileContent>);
 
@@ -65,7 +80,7 @@ impl Display for Maze {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let cmp_x = |left: &&Coord, right: &&Coord| left.x.cmp(&right.x);
         let cmp_y = |left: &&Coord, right: &&Coord| left.y.cmp(&right.y);
-        let mut map = self.0.clone();
+        let map = self.0.clone();
         let min_x = map.keys().min_by(cmp_x).unwrap().x;
         let max_x = map.keys().max_by(cmp_x).unwrap().x;
         let max_y = map.keys().max_by(cmp_y).unwrap().y;
@@ -81,6 +96,121 @@ impl Display for Maze {
             write!(f, "\r\n")?;
         }
         Ok(())
+    }
+}
+
+impl Maze {
+    fn find_tile(&self, tile: &TileContent) -> Coord {
+        self.0
+            .iter()
+            .find(|(_, content)| *content == tile)
+            .map(|(coord, _)| coord.clone())
+            .unwrap()
+    }
+    fn reachable_neighbors(&self, point: DirectedCoord) -> impl Iterator<Item = Coord> + '_ {
+        CardinalDirectionIter::new()
+            .map(move |direction| point.coord + direction.coord())
+            .filter(move |neighbor| neighbor != &point.incoming)
+            .filter(move |neighbor| match self.0.get(neighbor) {
+                None | Some(TileContent::Wall) => false,
+                _ => true,
+            })
+    }
+    fn num_reachable_neighbors(&self, point: DirectedCoord) -> usize {
+        self.reachable_neighbors(point).count()
+    }
+    fn is_dead_end(&self, point: DirectedCoord) -> bool {
+        self.num_reachable_neighbors(point) == 0
+    }
+    fn is_intersection(&self, point: DirectedCoord) -> bool {
+        self.num_reachable_neighbors(point) > 1
+    }
+    fn find_next_node(&self, point: DirectedCoord) -> (DirectedCoord, usize) {
+        let mut point = point;
+        let mut weight = if point.incoming != point.coord { 1 } else { 0 };
+        while !(self.is_dead_end(point) || self.is_intersection(point)) {
+            let next_point = self.reachable_neighbors(point).next().unwrap();
+            point = DirectedCoord {
+                incoming: point.coord,
+                coord: next_point,
+            };
+            weight += 1;
+        }
+        (point, weight)
+    }
+    fn build_edges_from(&self, mut point: DirectedCoord) -> Vec<(Edge, (DirectedCoord))> {
+        let (node, weight) = self.find_next_node(point);
+        let edge = Edge {
+            origin: point.incoming,
+            target: node.coord,
+            weight,
+        };
+        point = node;
+        std::iter::once((edge, node))
+            .chain(self.reachable_neighbors(point).flat_map(|neighbor| {
+                self.build_edges_from(DirectedCoord {
+                    incoming: point.coord,
+                    coord: neighbor,
+                })
+            }))
+            .collect::<Vec<_>>()
+    }
+    fn as_index(point: Coord, nodes: &Vec<Coord>) -> u32 {
+        nodes.iter().position(|p| *p == point).unwrap() as u32
+    }
+    // Represent the maze as a graph of intersections, with the distance between intersections on
+    // the edges
+    fn as_graph(&self) -> DiGraph<Coord, usize> {
+        let edges = self.build_edges_from(DirectedCoord::default());
+        let nodes = std::iter::once(Coord::default())
+            .chain(edges.iter().map(|(edge, _point)| edge.target))
+            .collect::<Vec<_>>();
+        let mut graph = DiGraph::<Coord, usize>::from_edges(edges.iter().map(|(edge, _point)| {
+            (
+                Self::as_index(edge.origin, &nodes),
+                Self::as_index(edge.target, &nodes),
+                edge.weight,
+            )
+        }));
+        for (node, point) in graph.node_weights_mut().zip(nodes.iter()) {
+            *node = point.clone();
+        }
+        graph
+    }
+    fn shortest_path_to_oxygen(&self) -> usize {
+        let graph = self.as_graph();
+        println!("{:?}", Dot::new(&graph));
+        let start = self.find_tile(&TileContent::StartingPoint);
+        let destination = self.find_tile(&TileContent::OxygenTank);
+
+        let start_index = graph
+            .node_indices()
+            .find(|index| graph.node_weight(*index) == Some(&start))
+            .unwrap();
+
+        let path = astar(
+            &graph,
+            start_index,
+            |finish| graph.node_weight(finish) == Some(&destination),
+            |e| *e.weight(),
+            |n| {
+                let cost = graph
+                    .node_weight(n)
+                    .unwrap()
+                    .manhattan_distance(destination) as usize;
+                cost
+            },
+        )
+        .unwrap();
+        println!("{:?}", path);
+        println!(
+            "{:#?}",
+            path.1
+                .iter()
+                .map(|i| graph.node_weight(*i))
+                .collect::<Vec<_>>()
+        );
+        path.0
     }
 }
 
@@ -134,7 +264,8 @@ impl Robot {
             ExplorationStep::HitWall => self.insert_tile_ahead(direction, TileContent::Wall),
             ExplorationStep::MovedOneStep => self.move_one_step(direction),
             ExplorationStep::FoundOxygen => {
-                self.insert_tile_ahead(direction, TileContent::OxygenTank)
+                self.insert_tile_ahead(direction, TileContent::OxygenTank);
+                self.move_one_step(direction);
             }
         }
         self.decide_next_direction(primary_direction)
@@ -188,4 +319,6 @@ fn main() {
         full_maze.0.extend(robot.maze.0);
     }
     println!("full map:\n{}", full_maze);
+    let part_1 = full_maze.shortest_path_to_oxygen();
+    println!("part 1: {}", part_1);
 }
