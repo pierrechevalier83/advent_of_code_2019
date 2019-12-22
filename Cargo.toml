@@ -4,91 +4,29 @@ version = "0.1.0"
 authors = ["Pierre Chevalier <pierrechevalier83@gmail.com>"]
 edition = "2018"
 
-[lib]
-name = "intcode_computer"
-path = "intcode_computer/src/lib.rs"
-
-
-[[bin]]
-name = "01"
-path = "01/src/main.rs"
-
-[[bin]]
-name = "02"
-path = "02/src/main.rs"
-
-[[bin]]
-name = "03"
-path = "03/src/main.rs"
-
-[[bin]]
-name = "04"
-path = "04/src/main.rs"
-
-[[bin]]
-name = "05"
-path = "05/src/main.rs"
+[workspace]
+members = [
+    "intcode_computer",
+	"01",
+	"02",
+	"03",
+	"04",
+	"05",
+	"06",
+	"07",
+	"08",
+	"09",
+	"10",
+	"11",
+	"12",
+	"13",
+	"14",
+	"15",
+	"16",
+	"17",
+]
 
 [[bin]]
-name = "06"
-path = "06/src/main.rs"
+name = "advent_of_code_2019"
+path = "src/main.rs"
 
-[[bin]]
-name = "07"
-path = "07/src/main.rs"
-
-[[bin]]
-name = "08"
-path = "08/src/main.rs"
-
-[[bin]]
-name = "09"
-path = "09/src/main.rs"
-
-[[bin]]
-name = "10"
-path = "10/src/main.rs"
-
-[[bin]]
-name = "11"
-path = "11/src/main.rs"
-
-[[bin]]
-name = "12"
-path = "12/src/main.rs"
-
-[[bin]]
-name = "13"
-path = "13/src/main.rs"
-
-[[bin]]
-name = "14"
-path = "14/src/main.rs"
-
-[[bin]]
-name = "15"
-path = "15/src/main.rs"
-
-[[bin]]
-name = "16"
-path = "16/src/main.rs"
-
-[[bin]]
-name = "17"
-path = "17/src/main.rs"
-
-[profile.release]
-debug = true
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-petgraph = "0.4.13"
-mockstream = "0.0.3"
-itertools = "0.8.2"
-fraction = "0.6.2"
-multimap = "0.8.0"
-num-traits = "0.2.10"
-primes = "0.2.3"
-termion = "1.5.4"
-structopt = "0.3.5"
-direction = "0.17.8"
