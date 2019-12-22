@@ -1,5 +1,6 @@
 use direction::{CardinalDirection, CardinalDirectionIter, Coord};
 use intcode_computer::{ComputationStatus, Computer};
+use map_display::MapDisplay;
 use petgraph::algo::astar;
 use petgraph::{graph::DiGraph, Direction};
 use std::collections::{HashMap, VecDeque};
@@ -25,6 +26,12 @@ enum TileContent {
     Robot,
     StartingPoint,
     Visited,
+}
+
+impl Default for TileContent {
+    fn default() -> Self {
+        Self::Empty
+    }
 }
 
 impl Display for TileContent {
@@ -78,24 +85,7 @@ struct Maze(HashMap<Coord, TileContent>);
 
 impl Display for Maze {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let cmp_x = |left: &&Coord, right: &&Coord| left.x.cmp(&right.x);
-        let cmp_y = |left: &&Coord, right: &&Coord| left.y.cmp(&right.y);
-        let map = self.0.clone();
-        let min_x = map.keys().min_by(cmp_x).unwrap().x;
-        let max_x = map.keys().max_by(cmp_x).unwrap().x;
-        let max_y = map.keys().max_by(cmp_y).unwrap().y;
-        let min_y = map.keys().min_by(cmp_y).unwrap().y;
-        for y in min_y..=max_y {
-            for x in min_x..=max_x {
-                write!(
-                    f,
-                    "{}",
-                    map.get(&Coord { x, y }).unwrap_or(&TileContent::Empty)
-                )?;
-            }
-            write!(f, "\r\n")?;
-        }
-        Ok(())
+        write!(f, "{}", MapDisplay(self.0.clone()))
     }
 }
 
@@ -326,6 +316,7 @@ fn main() {
         robot.walk_maze(primary_direction);
         full_maze.0.extend(robot.maze.0);
     }
+    println!("{}", full_maze);
     let part_1 = full_maze.shortest_path_to_oxygen();
     assert_eq!(248, part_1);
     println!("part 1: {}", part_1);

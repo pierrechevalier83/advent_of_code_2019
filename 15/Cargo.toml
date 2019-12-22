@@ -8,5 +8,6 @@ edition = "2018"
 
 [dependencies]
 intcode_computer = { path = "../intcode_computer"}
+map_display = { path = "../map_display"}
 petgraph = "0.4.13"
 direction = "0.17.8"
