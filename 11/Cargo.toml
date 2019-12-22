@@ -8,3 +8,4 @@ edition = "2018"
 
 [dependencies]
 intcode_computer = { path = "../intcode_computer"}
+direction = "0.17.8"

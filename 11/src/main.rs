@@ -1,3 +1,4 @@
+use direction::{CardinalDirection, Coord};
 use intcode_computer::{ComputationStatus, Computer};
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -51,79 +52,24 @@ impl FromStr for Turn {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
-enum Direction {
-    Up,
-    Right,
-    Down,
-    Left,
-}
-
-impl Default for Direction {
-    fn default() -> Self {
-        Direction::Up
-    }
-}
-
-impl Direction {
-    fn rotate(&self, turn: Turn) -> Self {
-        match (self, turn) {
-            (Self::Up, Turn::Right) => Self::Right,
-            (Self::Up, Turn::Left) => Self::Left,
-            (Self::Right, Turn::Right) => Self::Down,
-            (Self::Right, Turn::Left) => Self::Up,
-            (Self::Down, Turn::Right) => Self::Left,
-            (Self::Down, Turn::Left) => Self::Right,
-            (Self::Left, Turn::Right) => Self::Up,
-            (Self::Left, Turn::Left) => Self::Down,
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
-struct Point {
-    x: isize,
-    y: isize,
-}
-
-impl Default for Point {
-    fn default() -> Self {
-        Self { x: 0, y: 0 }
-    }
-}
-
-impl Point {
-    fn new(x: isize, y: isize) -> Self {
-        Self { x, y }
-    }
-    fn neighbor(&self, direction: Direction) -> Self {
-        match direction {
-            Direction::Up => Self::new(self.x, self.y + 1),
-            Direction::Right => Self::new(self.x + 1, self.y),
-            Direction::Down => Self::new(self.x, self.y - 1),
-            Direction::Left => Self::new(self.x - 1, self.y),
-        }
-    }
-}
-
 struct Robot {
     brain: Computer,
-    map: HashMap<Point, Color>,
-    position: Point,
-    direction: Direction,
+    map: HashMap<Coord, Color>,
+    position: Coord,
+    direction: CardinalDirection,
 }
 
 impl Robot {
     fn new(brain: Computer, initial_cell: Option<Color>) -> Self {
         let mut map = HashMap::new();
         if let Some(color) = initial_cell {
-            map.insert(Point::default(), color);
+            map.insert(Coord::default(), color);
         }
         Self {
             brain,
             map,
-            position: Point::default(),
-            direction: Direction::default(),
+            position: Coord::default(),
+            direction: CardinalDirection::North,
         }
     }
     fn current_color(&self) -> Color {
@@ -136,8 +82,11 @@ impl Robot {
         self.map.insert(self.position, color);
     }
     fn turn_and_walk_away(&mut self, turn: Turn) {
-        self.direction = self.direction.rotate(turn);
-        self.position = self.position.neighbor(self.direction);
+        self.direction = match turn {
+            Turn::Left => self.direction.left90(),
+            Turn::Right => self.direction.right90(),
+        };
+        self.position = self.position + self.direction.coord();
     }
     fn walk(&mut self) {
         let mut status = ComputationStatus::StarvingForMockInput;
@@ -155,19 +104,18 @@ impl Robot {
     }
 }
 
-fn draw(map: HashMap<Point, Color>) -> String {
-    let cmp_x = |left: &&Point, right: &&Point| left.x.cmp(&right.x);
-    let cmp_y = |left: &&Point, right: &&Point| left.y.cmp(&right.y);
+fn draw(map: HashMap<Coord, Color>) -> String {
+    let cmp_x = |left: &&Coord, right: &&Coord| left.x.cmp(&right.x);
+    let cmp_y = |left: &&Coord, right: &&Coord| left.y.cmp(&right.y);
     let min_x = map.keys().min_by(cmp_x).unwrap().x;
     let max_x = map.keys().max_by(cmp_x).unwrap().x;
     let min_y = map.keys().min_by(cmp_y).unwrap().y;
     let max_y = map.keys().max_by(cmp_y).unwrap().y;
     (min_y..=max_y)
-        .rev()
         .map(|y| {
             (min_x..=max_x)
                 .map(|x| {
-                    if map.get(&Point::new(x, y)) == Some(&Color::White) {
+                    if map.get(&Coord::new(x, y)) == Some(&Color::White) {
                         "░░"
                     } else {
                         "██"
