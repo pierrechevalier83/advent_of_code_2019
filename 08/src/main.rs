@@ -123,13 +123,3 @@ fn main() {
     );
     println!("part 2 : \n{}", image);
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn test_checksum() {
-        let image = Image::new(vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2], 3, 2);
-        assert_eq!(1, image.checksum());
-    }
-}

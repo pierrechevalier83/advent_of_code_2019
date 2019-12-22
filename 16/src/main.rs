@@ -136,7 +136,7 @@ mod tests {
     #[test]
     fn test_real_fft() {
         let input_signal = "03036732577212944063491565474664";
-        assert_eq!("84462026", real_fft(input_signal, 3));
+        assert_eq!("84462026", real_fft(input_signal, 100));
 
         // These two examples don't exhibit the property I rely on for optimizing this case, so
         // f*ck em :)
