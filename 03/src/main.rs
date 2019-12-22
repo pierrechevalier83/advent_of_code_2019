@@ -1,3 +1,4 @@
+use direction::CardinalDirection;
 use std::str::FromStr;
 
 #[derive(Clone, Copy, Default, Debug, Eq, PartialEq)]
@@ -32,21 +33,21 @@ impl Point {
     fn origin() -> Self {
         Point::default()
     }
-    fn travel(self, direction: Direction, distance: i32) -> Self {
+    fn travel(self, direction: CardinalDirection, distance: i32) -> Self {
         match direction {
-            Direction::Up => Point {
+            CardinalDirection::North => Point {
                 x: self.x,
                 y: self.y + distance,
             },
-            Direction::Down => Point {
+            CardinalDirection::South => Point {
                 x: self.x,
                 y: self.y - distance,
             },
-            Direction::Left => Point {
+            CardinalDirection::West => Point {
                 x: self.x - distance,
                 y: self.y,
             },
-            Direction::Right => Point {
+            CardinalDirection::East => Point {
                 x: self.x + distance,
                 y: self.y,
             },
@@ -289,6 +290,16 @@ impl Wire {
     }
 }
 
+fn parse_direction(c: char) -> CardinalDirection {
+    match c {
+        'U' => CardinalDirection::North,
+        'D' => CardinalDirection::South,
+        'R' => CardinalDirection::East,
+        'L' => CardinalDirection::West,
+        _ => panic!(format!("Can't parse {} as a direction!", c)),
+    }
+}
+
 impl FromStr for Wire {
     type Err = String;
 
@@ -296,34 +307,13 @@ impl FromStr for Wire {
         let mut start = Point::origin();
         let mut segments = Vec::new();
         for word in s.split(',') {
-            let direction = Direction::from_str(&word[0..1])?;
+            let direction = parse_direction(word.chars().next().unwrap());
             let distance: i32 = word[1..].parse().map_err(|e| format!("{}", e))?;
             let end = start.travel(direction, distance);
             segments.push(Segment::from_points(start, end)?);
             start = end;
         }
         Ok(Self { segments })
-    }
-}
-
-enum Direction {
-    Up,
-    Down,
-    Right,
-    Left,
-}
-
-impl FromStr for Direction {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "U" => Ok(Self::Up),
-            "D" => Ok(Self::Down),
-            "R" => Ok(Self::Right),
-            "L" => Ok(Self::Left),
-            _ => Err(format!("Can't parse {} as a direction!", s)),
-        }
     }
 }
 
