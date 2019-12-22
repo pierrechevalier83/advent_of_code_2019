@@ -73,6 +73,8 @@ path = "15/src/main.rs"
 name = "16"
 path = "16/src/main.rs"
 
+[profile.release]
+debug = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
