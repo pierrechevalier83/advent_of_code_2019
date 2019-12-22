@@ -144,6 +144,7 @@ fn main() {
     {
         let mut arcade = Arcade::new(program.clone());
         arcade.compute(0);
+        println!("{}", arcade);
         let part_1 = arcade
             .screen
             .values()
