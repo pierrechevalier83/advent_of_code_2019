@@ -1,4 +1,6 @@
+use direction::Coord;
 use intcode_computer::{ComputationStatus, Computer};
+use map_display::MapDisplay;
 use std::collections::HashMap;
 use std::fmt::{self, Display, Formatter};
 use std::io::{stdout, Write};
@@ -15,6 +17,12 @@ enum TileContent {
     Block,
     Paddle,
     Ball,
+}
+
+impl Default for TileContent {
+    fn default() -> Self {
+        Self::Empty
+    }
 }
 
 impl Display for TileContent {
@@ -44,34 +52,16 @@ impl FromStr for TileContent {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-struct Point {
-    x: isize,
-    y: isize,
-}
-
 #[derive(Clone)]
 struct Arcade {
     computer: Computer,
-    screen: HashMap<Point, TileContent>,
+    screen: HashMap<Coord, TileContent>,
     score: isize,
 }
 
 impl Display for Arcade {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let cmp_x = |left: &&Point, right: &&Point| left.x.cmp(&right.x);
-        let cmp_y = |left: &&Point, right: &&Point| left.y.cmp(&right.y);
-        let map = self.screen.clone();
-        let max_x = map.keys().max_by(cmp_x).unwrap().x;
-        let max_y = map.keys().max_by(cmp_y).unwrap().y;
-        write!(f, "Score: {}\r\n", self.score)?;
-        for y in 0..=max_y {
-            for x in 0..=max_x {
-                write!(f, "{}", map[&Point { x, y }])?;
-            }
-            write!(f, "\r\n")?;
-        }
-        Ok(())
+        write!(f, "{}", MapDisplay(self.screen.clone()))
     }
 }
 
@@ -96,11 +86,11 @@ impl Arcade {
             if pixel.iter().count() != 3 {
                 break;
             }
-            let point = Point {
+            let point = Coord {
                 x: pixel[0].trim().parse().unwrap(),
                 y: pixel[1].trim().parse().unwrap(),
             };
-            if point == (Point { x: -1, y: 0 }) {
+            if point == (Coord { x: -1, y: 0 }) {
                 self.score = pixel[2].trim().parse().unwrap();
             } else {
                 let content = TileContent::from_str(pixel[2].trim()).unwrap();
@@ -109,7 +99,7 @@ impl Arcade {
         }
         status
     }
-    fn find_x_position(&self, tile: &TileContent) -> isize {
+    fn find_x_position(&self, tile: &TileContent) -> i32 {
         self.screen
             .iter()
             .find(|(_point, content)| *content == tile)
