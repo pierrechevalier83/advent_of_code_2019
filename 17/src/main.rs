@@ -1,4 +1,4 @@
-use direction::{CardinalDirection, Coord};
+use direction::{CardinalDirection, CardinalDirectionIter, Coord};
 use intcode_computer::Computer;
 use map_display::MapDisplay;
 use std::collections::HashMap;
@@ -65,6 +65,22 @@ impl Camera {
         }
         Self { map }
     }
+    fn is_intersection(&self, coord: Coord) -> bool {
+        self.map.get(&coord) == Some(&TileContent::Scaffold)
+            && CardinalDirectionIter::new()
+                .map(|direction| coord + direction.coord())
+                .all(|neighbor| self.map.get(&neighbor) == Some(&TileContent::Scaffold))
+    }
+    fn alignment_parameter(coord: Coord) -> i32 {
+        coord.x * coord.y
+    }
+    fn total_alignment_parameter(&self) -> i32 {
+        self.map
+            .keys()
+            .filter(|coord| self.is_intersection(**coord))
+            .map(|coord| Self::alignment_parameter(*coord))
+            .sum()
+    }
 }
 
 impl Display for Camera {
@@ -78,5 +94,8 @@ fn main() {
     computer.set_mock_io_input("");
     computer.compute().unwrap();
     let output = computer.get_mock_io_output().unwrap();
-    println!("{}", Camera::new(&output));
+    let camera = Camera::new(&output);
+    println!("{}", camera);
+    let part_1 = camera.total_alignment_parameter();
+    println!("part 1: {}", part_1);
 }
