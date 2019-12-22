@@ -1,6 +1,8 @@
 use direction::{CardinalDirection, Coord};
 use intcode_computer::{ComputationStatus, Computer};
+use map_display::MapDisplay;
 use std::collections::HashMap;
+use std::fmt::{self, Display, Formatter};
 use std::str::FromStr;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
@@ -32,6 +34,16 @@ impl Into<&'static str> for Color {
             Self::Black => "0",
             Self::White => "1",
         }
+    }
+}
+
+impl Display for Color {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let px = match self {
+            Self::Black => "██",
+            Self::White => "░░",
+        };
+        write!(f, "{}", px)
     }
 }
 
@@ -104,29 +116,6 @@ impl Robot {
     }
 }
 
-fn draw(map: HashMap<Coord, Color>) -> String {
-    let cmp_x = |left: &&Coord, right: &&Coord| left.x.cmp(&right.x);
-    let cmp_y = |left: &&Coord, right: &&Coord| left.y.cmp(&right.y);
-    let min_x = map.keys().min_by(cmp_x).unwrap().x;
-    let max_x = map.keys().max_by(cmp_x).unwrap().x;
-    let min_y = map.keys().min_by(cmp_y).unwrap().y;
-    let max_y = map.keys().max_by(cmp_y).unwrap().y;
-    (min_y..=max_y)
-        .map(|y| {
-            (min_x..=max_x)
-                .map(|x| {
-                    if map.get(&Coord::new(x, y)) == Some(&Color::White) {
-                        "░░"
-                    } else {
-                        "██"
-                    }
-                })
-                .collect::<String>()
-                + "\n"
-        })
-        .collect::<String>()
-}
-
 fn main() {
     let brain = Computer::from_str(include_str!("input.txt")).unwrap();
     {
@@ -139,7 +128,7 @@ fn main() {
     {
         let mut beebop = Robot::new(brain, Some(Color::White));
         beebop.walk();
-        let part_2 = draw(beebop.map);
+        let part_2 = format!("{}", MapDisplay(beebop.map));
         assert_eq!(
             "██░░████████░░░░░░████░░░░░░░░██░░░░░░░░████░░░░██████░░░░████░░░░░░░░██░░░░░░░░██████
 ██░░████████░░████░░████████░░██░░████████░░████░░██░░████░░██░░████████░░████████████
