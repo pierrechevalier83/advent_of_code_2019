@@ -1,6 +1,7 @@
-use direction::Coord;
+use direction::{CardinalDirection, Coord};
 use std::collections::HashMap;
 use std::fmt::{self, Display, Formatter};
+use std::str::FromStr;
 
 pub struct MapDisplay<Content>(pub HashMap<Coord, Content>);
 
@@ -29,5 +30,25 @@ where
                 write!(f, "\r\n")
             })
             .collect::<Result<_, _>>()
+    }
+}
+
+impl<Content> FromStr for MapDisplay<Content>
+where
+    Content: Display + Default + From<char>,
+{
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut map = HashMap::new();
+        let mut coord = Coord::default();
+        for line in s.trim().split('\n') {
+            for c in line.chars() {
+                map.insert(coord, Content::from(c));
+                coord += CardinalDirection::East.coord();
+            }
+            coord += CardinalDirection::South.coord();
+            coord.x = 0;
+        }
+        Ok(Self(map))
     }
 }

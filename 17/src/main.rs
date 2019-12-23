@@ -49,9 +49,7 @@ struct Camera {
 
 impl Camera {
     fn new(computer_output: &str) -> Self {
-        let mut map = HashMap::new();
-        let mut coord = Coord::default();
-        for line in computer_output
+        let string_view = computer_output
             .trim()
             .split('\n')
             .map(|s| {
@@ -61,17 +59,10 @@ impl Camera {
                     format!("{}", s)
                 }
             })
-            .collect::<String>()
-            .split('\n')
-        {
-            for c in line.chars() {
-                map.insert(coord, TileContent::from(c));
-                coord += CardinalDirection::East.coord();
-            }
-            coord += CardinalDirection::South.coord();
-            coord.x = 0;
+            .collect::<String>();
+        Self {
+            map: MapDisplay::from_str(&string_view).unwrap().0,
         }
-        Self { map }
     }
     fn is_intersection(&self, coord: Coord) -> bool {
         self.map.get(&coord) == Some(&TileContent::Scaffold)
