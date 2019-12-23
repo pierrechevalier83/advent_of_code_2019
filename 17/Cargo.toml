@@ -10,4 +10,4 @@ edition = "2018"
 intcode_computer = { path = "../intcode_computer"}
 map_display = { path = "../map_display"}
 direction = "0.17.8"
-suffix_tree = "0.2.2"
+itertools = "0.8.2"
