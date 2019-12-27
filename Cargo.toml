@@ -8,6 +8,7 @@ edition = "2018"
 members = [
     "intcode_computer",
 	"map_display",
+	"maze",
 	"01",
 	"02",
 	"03",
