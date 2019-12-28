@@ -1,20 +1,27 @@
 #![deny(warnings)]
 
-use direction::{CardinalDirectionIter, Coord};
+use direction::{CardinalDirection, CardinalDirectionIter, Coord};
 use map_display::MapDisplay;
 use petgraph::{algo::astar, graph::DiGraph};
 use std::collections::HashMap;
-use std::fmt::{self, Display, Formatter};
+use std::fmt::{self, Debug, Display, Formatter};
+use std::str::FromStr;
 
 pub trait MazeTile {
-    fn is_wall(&self) -> bool;
+    fn wall() -> Self;
+    fn start() -> Self;
 }
 
-// TODO: this may make more sense as a Coord and a CardinalDirection
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 struct DirectedCoord {
-    incoming: Coord,
     coord: Coord,
+    direction: Option<CardinalDirection>,
+}
+
+impl DirectedCoord {
+    fn incoming(&self) -> Option<Coord> {
+        self.direction.map(|d| self.coord + d.opposite().coord())
+    }
 }
 
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
@@ -22,6 +29,17 @@ struct Edge {
     origin: Coord,
     target: Coord,
     weight: usize,
+}
+
+impl<Content> FromStr for Maze<Content>
+where
+    Content: Display + Default + From<char>,
+{
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let map = MapDisplay::from_str(s)?.0;
+        Ok(Self(map))
+    }
 }
 
 #[derive(Clone, Default)]
@@ -33,6 +51,20 @@ where
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}", MapDisplay(self.0.clone()))
+    }
+}
+
+impl<MazeTile> Debug for Maze<MazeTile>
+where
+    MazeTile: Clone + Default + PartialEq + crate::MazeTile,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let start = self.find_tile(&MazeTile::start());
+        write!(
+            f,
+            "{:?}",
+            petgraph::dot::Dot::new(&self.as_graph_from(start))
+        )
     }
 }
 
@@ -50,13 +82,16 @@ where
             .map(|(coord, _)| coord.clone())
             .unwrap()
     }
-    fn reachable_neighbors(&self, point: DirectedCoord) -> impl Iterator<Item = Coord> + '_ {
+    fn reachable_neighbors(
+        &self,
+        point: DirectedCoord,
+    ) -> impl Iterator<Item = (CardinalDirection, Coord)> + '_ {
         CardinalDirectionIter::new()
-            .map(move |direction| point.coord + direction.coord())
-            .filter(move |neighbor| neighbor != &point.incoming)
-            .filter(move |neighbor| match self.0.get(neighbor) {
+            .map(move |direction| (direction, point.coord + direction.coord()))
+            .filter(move |(_, neighbor)| point.incoming() != Some(*neighbor))
+            .filter(move |(_, neighbor)| match self.0.get(neighbor) {
                 None => false,
-                Some(tile) => !tile.is_wall(),
+                Some(tile) => tile != &MazeTile::wall(),
             })
     }
     fn num_reachable_neighbors(&self, point: DirectedCoord) -> usize {
@@ -70,12 +105,12 @@ where
     }
     fn find_next_node(&self, point: DirectedCoord) -> (DirectedCoord, usize) {
         let mut point = point;
-        let mut weight = if point.incoming != point.coord { 1 } else { 0 };
+        let mut weight = if point.direction.is_some() { 1 } else { 0 };
         while !(self.is_dead_end(point) || self.is_intersection(point)) {
-            let next_point = self.reachable_neighbors(point).next().unwrap();
+            let (direction, coord) = self.reachable_neighbors(point).next().unwrap();
             point = DirectedCoord {
-                incoming: point.coord,
-                coord: next_point,
+                direction: Some(direction),
+                coord,
             };
             weight += 1;
         }
@@ -84,18 +119,21 @@ where
     fn build_edges_from(&self, mut point: DirectedCoord) -> Vec<(Edge, DirectedCoord)> {
         let (node, weight) = self.find_next_node(point);
         let edge = Edge {
-            origin: point.incoming,
+            origin: point.incoming().unwrap_or(point.coord),
             target: node.coord,
             weight,
         };
         point = node;
         std::iter::once((edge, node))
-            .chain(self.reachable_neighbors(point).flat_map(|neighbor| {
-                self.build_edges_from(DirectedCoord {
-                    incoming: point.coord,
-                    coord: neighbor,
-                })
-            }))
+            .chain(
+                self.reachable_neighbors(point)
+                    .flat_map(|(direction, coord)| {
+                        self.build_edges_from(DirectedCoord {
+                            direction: Some(direction),
+                            coord,
+                        })
+                    }),
+            )
             .collect::<Vec<_>>()
     }
     fn as_index(point: Coord, nodes: &Vec<Coord>) -> u32 {
@@ -106,11 +144,12 @@ where
     pub fn as_graph_from(&self, coord: Coord) -> DiGraph<Coord, usize> {
         let edges = self.build_edges_from(DirectedCoord {
             coord: coord,
-            incoming: coord,
+            direction: None,
         });
-        let nodes = std::iter::once(coord)
+        let mut nodes = std::iter::once(coord)
             .chain(edges.iter().map(|(edge, _point)| edge.target))
             .collect::<Vec<_>>();
+        nodes.dedup();
         let mut graph = DiGraph::<Coord, usize>::from_edges(edges.iter().map(|(edge, _point)| {
             (
                 Self::as_index(edge.origin, &nodes),
@@ -123,9 +162,11 @@ where
         }
         graph
     }
-    pub fn shortest_path(&self, start: Coord, destination: Coord) -> Option<usize> {
-        let graph = self.as_graph_from(start);
-
+    pub fn shortest_path(
+        graph: &DiGraph<Coord, usize>,
+        start: Coord,
+        destination: Coord,
+    ) -> Option<usize> {
         let start_index = graph
             .node_indices()
             .find(|index| graph.node_weight(*index) == Some(&start))

@@ -50,11 +50,11 @@ impl Display for TileContent {
 }
 
 impl maze::MazeTile for TileContent {
-    fn is_wall(&self) -> bool {
-        match self {
-            Self::Wall => true,
-            _ => false,
-        }
+    fn wall() -> Self {
+        Self::Wall
+    }
+    fn start() -> Self {
+        Self::StartingPoint
     }
 }
 
@@ -93,7 +93,8 @@ impl Maze {
     fn shortest_path_to_oxygen(&self) -> usize {
         let start = self.0.find_tile(&TileContent::StartingPoint);
         let destination = self.0.find_tile(&TileContent::OxygenTank);
-        self.0.shortest_path(start, destination).unwrap()
+        let graph = self.0.as_graph_from(start);
+        maze::Maze::<TileContent>::shortest_path(&graph, start, destination).unwrap()
     }
     fn total_time_for_oxyen_to_fill_maze(&self) -> usize {
         let start = self.0.find_tile(&TileContent::OxygenTank);
@@ -102,7 +103,7 @@ impl Maze {
             .externals(Direction::Outgoing)
             .map(|dead_end| {
                 let destination = graph.node_weight(dead_end).unwrap().clone();
-                self.0.shortest_path(start, destination).unwrap()
+                maze::Maze::<TileContent>::shortest_path(&graph, start, destination).unwrap()
             })
             .max()
             .unwrap()
@@ -210,6 +211,7 @@ fn main() {
     }
     let full_maze = Maze::new(full_maze);
     println!("{}", full_maze);
+    println!("{:?}", full_maze.0);
     let part_1 = full_maze.shortest_path_to_oxygen();
     assert_eq!(248, part_1);
     println!("part 1: {}", part_1);
