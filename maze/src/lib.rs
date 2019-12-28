@@ -1,15 +1,21 @@
 #![deny(warnings)]
 
-use direction::{CardinalDirection, CardinalDirectionIter, Coord};
+pub use direction::Coord;
+use direction::{CardinalDirection, CardinalDirectionIter};
 use map_display::MapDisplay;
-use petgraph::{algo::astar, graph::DiGraph};
+pub use petgraph;
+use petgraph::algo::astar;
+pub use petgraph::graph::{DiGraph, NodeIndex};
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Display, Formatter};
 use std::str::FromStr;
 
 pub trait MazeTile {
-    fn wall() -> Self;
-    fn start() -> Self;
+    /// Walls define the maze
+    fn is_wall(self) -> bool;
+    /// Interesting tiles are tiles that should end up in the graph representation of the wall
+    /// whether or not they are located at intersections or dead-ends in the maze
+    fn is_interesting(self) -> bool;
 }
 
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
@@ -54,33 +60,37 @@ where
     }
 }
 
-impl<MazeTile> Debug for Maze<MazeTile>
-where
-    MazeTile: Clone + Default + PartialEq + crate::MazeTile,
-{
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let start = self.find_tile(&MazeTile::start());
-        write!(
-            f,
-            "{:?}",
-            petgraph::dot::Dot::new(&self.as_graph_from(start))
-        )
-    }
-}
-
 impl<MazeTile> Maze<MazeTile>
 where
-    MazeTile: crate::MazeTile + PartialEq,
+    MazeTile: crate::MazeTile + PartialEq + Display + Copy,
 {
     pub fn new(map: HashMap<Coord, MazeTile>) -> Self {
         Self(map)
     }
-    pub fn find_tile(&self, tile: &MazeTile) -> Coord {
+    pub fn find_tile(&self, tile: MazeTile) -> Option<Coord> {
+        self.find_tiles(&|t| t == tile).get(0).cloned()
+    }
+    pub fn find_tiles(&self, filter: &dyn Fn(MazeTile) -> bool) -> Vec<Coord> {
         self.0
             .iter()
-            .find(|(_, content)| *content == tile)
+            .filter(|(_, content)| filter(**content))
             .map(|(coord, _)| coord.clone())
-            .unwrap()
+            .collect()
+    }
+    pub fn find_reachable_tiles(
+        &self,
+        graph: &DiGraph<Coord, usize>,
+        filter: &dyn Fn(MazeTile) -> bool,
+    ) -> Vec<Coord> {
+        graph
+            .node_indices()
+            .filter_map(|index| graph.node_weight(index))
+            .filter(|coord| {
+                let tile = self.0[coord];
+                filter(tile)
+            })
+            .cloned()
+            .collect()
     }
     fn reachable_neighbors(
         &self,
@@ -91,7 +101,7 @@ where
             .filter(move |(_, neighbor)| point.incoming() != Some(*neighbor))
             .filter(move |(_, neighbor)| match self.0.get(neighbor) {
                 None => false,
-                Some(tile) => tile != &MazeTile::wall(),
+                Some(tile) => !MazeTile::is_wall(*tile),
             })
     }
     fn num_reachable_neighbors(&self, point: DirectedCoord) -> usize {
@@ -103,10 +113,19 @@ where
     fn is_intersection(&self, point: DirectedCoord) -> bool {
         self.num_reachable_neighbors(point) > 1
     }
+
+    fn is_interesting(&self, point: DirectedCoord) -> bool {
+        let tile = &self.0[&point.coord];
+        tile.is_interesting()
+    }
+
     fn find_next_node(&self, point: DirectedCoord) -> (DirectedCoord, usize) {
         let mut point = point;
         let mut weight = if point.direction.is_some() { 1 } else { 0 };
-        while !(self.is_dead_end(point) || self.is_intersection(point)) {
+        while !(self.is_dead_end(point)
+            || self.is_intersection(point)
+            || self.is_interesting(point))
+        {
             let (direction, coord) = self.reachable_neighbors(point).next().unwrap();
             point = DirectedCoord {
                 direction: Some(direction),
@@ -143,9 +162,10 @@ where
     // the edges
     pub fn as_graph_from(&self, coord: Coord) -> DiGraph<Coord, usize> {
         let edges = self.build_edges_from(DirectedCoord {
-            coord: coord,
+            coord,
             direction: None,
         });
+
         let mut nodes = std::iter::once(coord)
             .chain(edges.iter().map(|(edge, _point)| edge.target))
             .collect::<Vec<_>>();
