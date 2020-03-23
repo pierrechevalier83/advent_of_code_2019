@@ -1,3 +1,5 @@
+#![deny(warnings)]
+
 use std::process::Command;
 use std::time::SystemTime;
 

@@ -1,3 +1,5 @@
+#![deny(warnings)]
+
 use std::iter::repeat;
 
 const BASE_PATTERN: [isize; 4] = [0, 1, 0, -1];
@@ -12,7 +14,7 @@ fn digits(n: &'_ str) -> impl Iterator<Item = isize> + '_ {
 
 fn nth_pattern(n: usize) -> impl Iterator<Item = isize> + 'static {
     BASE_PATTERN
-        .into_iter()
+        .iter()
         .flat_map(move |i| repeat(i).take(n + 1))
         .cycle()
         .skip(1)

@@ -1,3 +1,5 @@
+#![deny(warnings)]
+
 use direction::CardinalDirection;
 use std::str::FromStr;
 

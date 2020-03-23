@@ -1,3 +1,5 @@
+#![deny(warnings)]
+
 use petgraph::{algo::bellman_ford, dot::Dot, graph::NodeIndex, Direction};
 use std::{collections::HashMap, fmt};
 

@@ -1,3 +1,5 @@
+#![deny(warnings)]
+
 use std::convert::TryFrom;
 use std::fmt::{self, Display, Formatter};
 use std::slice::Chunks;

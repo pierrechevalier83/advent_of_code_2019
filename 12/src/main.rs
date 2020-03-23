@@ -1,3 +1,5 @@
+#![deny(warnings)]
+
 use primes::PrimeSet;
 use std::collections::BTreeMap;
 use std::fmt;

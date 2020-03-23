@@ -1,3 +1,5 @@
+#![deny(warnings)]
+
 use direction::{CardinalDirection, CardinalDirectionIter, Coord};
 use intcode_computer::{ComputationStatus, Computer};
 use map_display::MapDisplay;
@@ -128,7 +130,7 @@ impl Maze {
         }
         (point, weight)
     }
-    fn build_edges_from(&self, mut point: DirectedCoord) -> Vec<(Edge, (DirectedCoord))> {
+    fn build_edges_from(&self, mut point: DirectedCoord) -> Vec<(Edge, DirectedCoord)> {
         let (node, weight) = self.find_next_node(point);
         let edge = Edge {
             origin: point.incoming,

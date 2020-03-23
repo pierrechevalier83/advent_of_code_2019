@@ -1,3 +1,5 @@
+#![deny(warnings)]
+
 use intcode_computer::Computer;
 use std::str::FromStr;
 

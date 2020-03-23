@@ -1,3 +1,5 @@
+#![deny(warnings)]
+
 use fraction::{GenericFraction, Sign};
 use multimap::MultiMap;
 use std::cmp::Ordering;

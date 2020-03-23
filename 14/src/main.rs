@@ -1,3 +1,5 @@
+#![deny(warnings)]
+
 use itertools::Itertools;
 use petgraph::{
     dot::Dot,

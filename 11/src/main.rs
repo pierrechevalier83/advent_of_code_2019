@@ -1,3 +1,5 @@
+#![deny(warnings)]
+
 use direction::{CardinalDirection, Coord};
 use intcode_computer::{ComputationStatus, Computer};
 use map_display::MapDisplay;

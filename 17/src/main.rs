@@ -1,3 +1,5 @@
+#![deny(warnings)]
+
 use direction::{CardinalDirection, CardinalDirectionIter, Coord};
 use intcode_computer::{ComputationStatus, Computer};
 use itertools::Itertools;

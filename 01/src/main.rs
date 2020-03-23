@@ -1,3 +1,5 @@
+#![deny(warnings)]
+
 /// The Elves quickly load you into a spacecraft and prepare to launch.
 
 /// At the first Go / No Go poll, every Elf is Go until the Fuel Counter-Upper. They haven't determined the amount of fuel required yet.

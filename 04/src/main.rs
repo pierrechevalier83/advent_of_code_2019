@@ -1,3 +1,5 @@
+#![deny(warnings)]
+
 fn digits_are_sorted(x: Number) -> bool {
     let mut sorted = x.clone();
     sorted.digits.sort();
@@ -42,7 +44,7 @@ struct Number {
 impl Number {
     fn last_non_nine_digit_position(&self) -> Option<usize> {
         self.digits
-            .into_iter()
+            .iter()
             .rev()
             .position(|digit| *digit != 9)
             .map(|index| NUM_DIGITS - index - 1)
